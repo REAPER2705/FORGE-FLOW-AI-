@@ -1,0 +1,1155 @@
+# ForgeFlow AI — Technical PRD & Architecture
+
+## 1. Project Objective
+
+Build **ForgeFlow AI**, an AI-powered industrial operations platform that demonstrates:
+
+* Simulated Industrial IoT telemetry
+* Real-time-style machine monitoring using API polling
+* Interactive 2D factory digital twin
+* AI-based anomaly and incident analysis
+* LangGraph multi-agent orchestration
+* Google Gemini integration
+* n8n automation
+* Automated maintenance work orders
+* PDF operational reports
+* MongoDB persistence
+
+The project must be technically strong, visually polished, modular, and easy to understand and maintain.
+
+There are **no physical IoT sensors**. The project must use a realistic backend telemetry simulator and clearly treat the data as simulated industrial telemetry.
+
+---
+
+# 2. Technology Stack
+
+## Frontend
+
+* React
+* Vite
+* Tailwind CSS
+* Recharts
+* Framer Motion
+
+## Backend
+
+* Node.js
+* Express.js
+* REST API
+
+## Database
+
+* MongoDB Community Server
+* Mongoose
+
+## AI
+
+* Google Gemini API
+* LangGraph
+
+## Automation
+
+* n8n
+* Docker / Docker Compose
+* Webhooks
+
+## Reports
+
+* PDF generation library
+
+## Important Architecture Constraint
+
+**Do NOT use WebSockets or Socket.IO.**
+
+Use lightweight API polling from the frontend every 3–5 seconds for changing telemetry/status data.
+
+Do NOT introduce:
+
+* Redis
+* Kafka
+* Kubernetes
+* Microservices
+* GraphQL
+* WebSockets
+* unnecessary infrastructure
+
+Keep the architecture modular but beginner-maintainable.
+
+---
+
+# 3. High-Level Architecture
+
+```text
+                    FORGEFLOW AI
+                         |
+              +----------+----------+
+              |                     |
+           React                Express API
+              |                     |
+              |              +------+------+
+              |              |      |      |
+              |           MongoDB  AI     n8n
+              |              |      |      |
+              |              |  LangGraph  |
+              |              |      |      |
+              |              |   Gemini     |
+              |              |             |
+              +---------- REST API --------+
+```
+
+---
+
+# 4. Main Technical Flow
+
+## Machine Monitoring
+
+```text
+Telemetry Simulator
+        |
+        v
+Express Backend
+        |
+        v
+MongoDB
+        |
+        v
+REST API
+        |
+        v
+React Dashboard
+        |
+        v
+Polling every 3–5 seconds
+```
+
+## Critical Incident Automation
+
+```text
+Telemetry Simulator
+        |
+        v
+Anomaly Detection
+        |
+        v
+Critical Incident
+        |
+        v
+n8n Webhook
+        |
+        v
+AI Analysis
+        |
+        v
+Gemini + LangGraph
+        |
+        v
+Incident Summary
+        |
+        v
+Notification
+        |
+        v
+Work Order
+        |
+        v
+MongoDB
+        |
+        v
+React Dashboard
+```
+
+---
+
+# 5. Backend Architecture
+
+Use a clean Express architecture.
+
+```text
+server/
+├── src/
+│   ├── config/
+│   │   ├── database.js
+│   │   └── env.js
+│   │
+│   ├── models/
+│   │   ├── Machine.js
+│   │   ├── Telemetry.js
+│   │   ├── Incident.js
+│   │   ├── WorkOrder.js
+│   │   └── AutomationExecution.js
+│   │
+│   ├── routes/
+│   │   ├── machine.routes.js
+│   │   ├── telemetry.routes.js
+│   │   ├── incident.routes.js
+│   │   ├── workOrder.routes.js
+│   │   ├── copilot.routes.js
+│   │   ├── automation.routes.js
+│   │   └── report.routes.js
+│   │
+│   ├── controllers/
+│   ├── services/
+│   │   ├── telemetry.service.js
+│   │   ├── anomaly.service.js
+│   │   ├── incident.service.js
+│   │   ├── maintenance.service.js
+│   │   ├── ai.service.js
+│   │   ├── n8n.service.js
+│   │   └── report.service.js
+│   │
+│   ├── ai/
+│   │   ├── graph.js
+│   │   ├── incidentAgent.js
+│   │   ├── rootCauseAgent.js
+│   │   ├── riskAgent.js
+│   │   └── maintenanceAgent.js
+│   │
+│   ├── simulator/
+│   │   └── telemetrySimulator.js
+│   │
+│   ├── middleware/
+│   └── app.js
+│
+└── package.json
+```
+
+Keep business logic inside services rather than route files.
+
+---
+
+# 6. MongoDB Architecture
+
+Use MongoDB with Mongoose.
+
+Collections:
+
+```text
+machines
+telemetry
+incidents
+workorders
+automationexecutions
+```
+
+## Machine
+
+```text
+_id
+machineId
+name
+type
+zone
+status
+healthScore
+createdAt
+updatedAt
+```
+
+## Telemetry
+
+```text
+machineId
+temperature
+vibration
+pressure
+rpm
+powerConsumption
+utilization
+timestamp
+```
+
+## Incident
+
+```text
+incidentId
+machineId
+severity
+status
+title
+description
+telemetrySnapshot
+aiAnalysis
+riskScore
+recommendedAction
+createdAt
+updatedAt
+```
+
+## Work Order
+
+```text
+workOrderId
+incidentId
+machineId
+title
+description
+priority
+status
+createdAt
+updatedAt
+```
+
+## Automation Execution
+
+```text
+executionId
+workflowName
+incidentId
+status
+result
+duration
+createdAt
+```
+
+Do not overcomplicate MongoDB relationships. Use IDs and simple references.
+
+---
+
+# 7. Industrial IoT Simulator
+
+Create a backend telemetry simulator.
+
+Each machine continuously produces:
+
+```text
+temperature
+vibration
+pressure
+rpm
+powerConsumption
+utilization
+```
+
+Example:
+
+```json
+{
+  "machineId": "M-104",
+  "temperature": 82.4,
+  "vibration": 7.2,
+  "pressure": 4.8,
+  "rpm": 1840,
+  "powerConsumption": 91,
+  "utilization": 93
+}
+```
+
+Telemetry should change gradually and realistically.
+
+Do not generate completely random values every time.
+
+Create machine operating ranges.
+
+---
+
+# 8. Simulation States
+
+Machines should support:
+
+```text
+NORMAL
+WARNING
+CRITICAL
+OFFLINE
+```
+
+Example:
+
+```text
+NORMAL
+Temperature: 64°C
+Vibration: 2.1 mm/s
+
+        ↓
+
+WARNING
+Temperature: 74°C
+Vibration: 4.8 mm/s
+
+        ↓
+
+CRITICAL
+Temperature: 86°C
+Vibration: 8.1 mm/s
+```
+
+Create a controlled simulation mechanism.
+
+Required controls:
+
+```text
+Start Simulation
+Trigger Warning
+Trigger Critical Incident
+Reset Simulation
+```
+
+This is required so the project can be demonstrated reliably.
+
+---
+
+# 9. Anomaly Detection
+
+Implement deterministic backend anomaly detection.
+
+Example rules:
+
+```text
+temperature > threshold
+vibration > threshold
+pressure outside range
+powerConsumption > threshold
+```
+
+Determine:
+
+```text
+NORMAL
+WARNING
+CRITICAL
+```
+
+Calculate a machine health score.
+
+Do NOT use Gemini for every telemetry reading.
+
+AI should only be triggered when meaningful anomalies/incidents occur.
+
+---
+
+# 10. Digital Twin
+
+Create an interactive 2D factory layout.
+
+Factory zones:
+
+```text
+Assembly
+CNC
+Packaging
+Storage
+Utilities
+```
+
+Machines should appear inside the appropriate zone.
+
+Machine status:
+
+```text
+Healthy → Green
+Warning → Yellow
+Critical → Red
+Offline → Gray
+```
+
+Clicking a machine opens a machine details panel.
+
+Display:
+
+* Current telemetry
+* Health score
+* Status
+* Recent telemetry chart
+* AI analysis
+* Maintenance recommendation
+
+---
+
+# 11. Dashboard
+
+Create a premium industrial operations dashboard.
+
+Display:
+
+```text
+Total Machines
+Active Incidents
+Critical Machines
+Average Machine Health
+Production Efficiency
+```
+
+Main sections:
+
+```text
+Factory Digital Twin
+Machine Health
+Telemetry
+Active Incidents
+Automation Activity
+```
+
+All data should come from the backend.
+
+Do not hardcode production metrics.
+
+---
+
+# 12. Machine Detail
+
+Show:
+
+```text
+Machine ID
+Machine Name
+Status
+Health Score
+
+Temperature
+Vibration
+Pressure
+RPM
+Power
+Utilization
+```
+
+Use Recharts for:
+
+* Temperature history
+* Vibration history
+* Power history
+
+Time ranges:
+
+```text
+1H
+6H
+24H
+7D
+```
+
+---
+
+# 13. AI Architecture
+
+Use LangGraph to orchestrate the AI analysis.
+
+Architecture:
+
+```text
+Critical Incident
+       |
+       v
+Incident Analysis Agent
+       |
+       +----> Root Cause Agent
+       |
+       +----> Risk Assessment Agent
+       |
+       +----> Maintenance Agent
+       |
+       v
+Final Recommendation
+```
+
+## Incident Analysis Agent
+
+Identify what happened.
+
+## Root Cause Agent
+
+Determine probable cause from telemetry and machine context.
+
+## Risk Agent
+
+Determine failure/operational risk.
+
+## Maintenance Agent
+
+Generate recommended maintenance action.
+
+Use Gemini as the reasoning model.
+
+AI responses must be returned in structured JSON so the frontend can reliably render them.
+
+Example:
+
+```json
+{
+  "summary": "...",
+  "probableCause": "...",
+  "riskScore": 78,
+  "confidence": 91,
+  "recommendedAction": "...",
+  "priority": "CRITICAL"
+}
+```
+
+---
+
+# 14. Critical Incident → n8n
+
+This is the primary automation workflow.
+
+When a machine becomes critical:
+
+```text
+Critical Incident
+       |
+       v
+POST to n8n Webhook
+       |
+       v
+Validate Payload
+       |
+       v
+AI Analysis
+       |
+       v
+Generate Summary
+       |
+       v
+Notification
+       |
+       v
+Return Result
+       |
+       v
+ForgeFlow Backend
+       |
+       v
+Create/Update Work Order
+       |
+       v
+Dashboard
+```
+
+---
+
+# 15. n8n Docker Setup
+
+Use Docker only for n8n infrastructure.
+
+Create:
+
+```text
+n8n/
+├── compose.yaml
+└── .env.example
+```
+
+Use a persistent Docker volume for n8n data.
+
+Do not add Redis or PostgreSQL unless actually required.
+
+For local development, n8n's default SQLite storage is sufficient.
+
+The n8n instance should be accessible locally on:
+
+```text
+http://localhost:5678
+```
+
+---
+
+# 16. n8n Workflow
+
+Create:
+
+```text
+Webhook
+   ↓
+Validate Incident
+   ↓
+AI Analysis
+   ↓
+Format Result
+   ↓
+Notification
+   ↓
+Respond to Webhook
+```
+
+Webhook payload:
+
+```json
+{
+  "incidentId": "INC-024",
+  "machineId": "M-104",
+  "severity": "critical",
+  "telemetry": {
+    "temperature": 86,
+    "vibration": 8.1,
+    "rpm": 1840,
+    "powerConsumption": 91
+  }
+}
+```
+
+ForgeFlow backend must receive the n8n response.
+
+---
+
+# 17. Automation Tracking
+
+Store every automation execution in MongoDB.
+
+Display:
+
+```text
+Critical Incident Processing
+
+Status: SUCCESS
+
+Incident: INC-024
+
+Duration: 2.4s
+
+Timestamp: ...
+```
+
+States:
+
+```text
+RUNNING
+SUCCESS
+FAILED
+```
+
+The Automation page must display actual backend/n8n execution information.
+
+Do not create fake execution logs.
+
+---
+
+# 18. Maintenance Work Orders
+
+When critical incident processing succeeds, create a work order.
+
+Example:
+
+```text
+WO-1042
+
+Machine: M-104
+
+Issue:
+Bearing degradation
+
+Priority:
+CRITICAL
+
+Status:
+OPEN
+```
+
+Statuses:
+
+```text
+OPEN
+IN_PROGRESS
+COMPLETED
+```
+
+---
+
+# 19. AI Copilot
+
+Create a factory-aware AI assistant.
+
+The frontend sends queries to:
+
+```text
+POST /api/copilot
+```
+
+The backend retrieves relevant factory data and sends the context to Gemini.
+
+Supported queries:
+
+```text
+Which machines are at highest risk?
+
+Why is M-104 critical?
+
+What incidents occurred today?
+
+What should maintenance prioritize?
+
+Summarize factory health.
+```
+
+The AI must use actual ForgeFlow data.
+
+Do not expose the Gemini API key to the frontend.
+
+---
+
+# 20. API Endpoints
+
+Implement:
+
+```text
+GET    /api/machines
+GET    /api/machines/:id
+GET    /api/machines/:id/telemetry
+
+GET    /api/incidents
+GET    /api/incidents/:id
+POST   /api/incidents
+
+GET    /api/work-orders
+POST   /api/work-orders
+PATCH  /api/work-orders/:id
+
+POST   /api/copilot
+
+GET    /api/automation/executions
+POST   /api/automation/incident
+
+GET    /api/reports
+POST   /api/reports/generate
+
+POST   /api/simulation/start
+POST   /api/simulation/warning
+POST   /api/simulation/critical
+POST   /api/simulation/reset
+```
+
+---
+
+# 21. Frontend Pages
+
+Create only these pages:
+
+```text
+Dashboard
+Factory Twin
+Machines
+Incidents
+Maintenance
+AI Copilot
+Reports
+Automation
+```
+
+Do not create unnecessary settings/admin pages unless required.
+
+---
+
+# 22. Reports
+
+Generate PDF reports using actual database information.
+
+Report sections:
+
+```text
+Factory Health
+Machine Status
+Critical Incidents
+Maintenance Recommendations
+AI Summary
+```
+
+Provide:
+
+```text
+Generate PDF
+```
+
+---
+
+# 23. Polling
+
+Do NOT use WebSockets.
+
+Use API polling for changing data.
+
+Recommended intervals:
+
+```text
+Machine status: 5 seconds
+Dashboard metrics: 5 seconds
+Incidents: 5 seconds
+Automation activity: 5 seconds
+```
+
+Telemetry charts can use a slightly longer interval if required.
+
+Create reusable polling hooks instead of duplicating setInterval logic.
+
+---
+
+# 24. Environment Variables
+
+Backend:
+
+```env
+PORT=5000
+MONGODB_URI=mongodb://127.0.0.1:27017/forgeflow
+GEMINI_API_KEY=
+N8N_WEBHOOK_URL=
+CLIENT_URL=http://localhost:5173
+```
+
+Frontend:
+
+```env
+VITE_API_URL=http://localhost:5000
+```
+
+Never expose:
+
+```text
+GEMINI_API_KEY
+MONGODB_URI
+```
+
+to the frontend.
+
+---
+
+# 25. UI Design
+
+Visual direction:
+
+**Premium Industrial AI Control Center**
+
+Use:
+
+* Dark interface
+* Technical typography
+* Clear hierarchy
+* Subtle borders
+* Data-dense layouts
+* Recharts
+* Framer Motion
+* Interactive machine states
+* Professional status indicators
+* Minimal animations
+
+Avoid:
+
+* Excessive gradients
+* Excessive glassmorphism
+* Huge decorative headings
+* Unnecessary 3D
+* Generic SaaS cards
+* Decorative elements without functionality
+
+The UI should prioritize technical data visualization.
+
+---
+
+# 26. Error Handling
+
+Handle:
+
+* MongoDB connection failure
+* Gemini API failure
+* n8n unavailable
+* Invalid telemetry
+* API failure
+* PDF generation failure
+
+Show meaningful UI states.
+
+Example:
+
+```text
+Automation unavailable
+
+The incident has been saved.
+Automation will need to be retried.
+```
+
+Do not let one failed service crash the entire dashboard.
+
+---
+
+# 27. Loading States
+
+Implement:
+
+* Skeleton loaders
+* Empty states
+* Error states
+* Retry buttons
+* Success notifications
+
+Do not use generic "Loading..." text everywhere.
+
+---
+
+# 28. Security
+
+* Use environment variables
+* Validate API inputs
+* Validate n8n webhook payloads
+* Never expose API secrets
+* Never commit `.env`
+* Provide `.env.example`
+* Add `.gitignore`
+
+---
+
+# 29. Demo Flow
+
+The complete portfolio demonstration should work like this:
+
+```text
+1. Start ForgeFlow
+
+2. Start telemetry simulator
+
+3. Factory operates normally
+
+4. Trigger M-104 degradation
+
+5. Telemetry changes
+
+6. Machine becomes WARNING
+
+7. Machine becomes CRITICAL
+
+8. Incident is created
+
+9. Backend sends webhook to n8n
+
+10. n8n triggers AI analysis
+
+11. Gemini/LangGraph generates analysis
+
+12. n8n generates notification
+
+13. Backend receives automation result
+
+14. Work order is created
+
+15. Dashboard reflects the incident
+
+16. Automation page shows SUCCESS
+
+17. Generate PDF report
+```
+
+The entire workflow must work without physical IoT hardware.
+
+---
+
+# 30. Development Strategy
+
+Do NOT implement everything at once.
+
+Implement in these phases:
+
+## Phase 1 — Foundation
+
+* React/Vite
+* Express
+* MongoDB connection
+* Basic API
+* Project structure
+* Environment configuration
+
+## Phase 2 — Factory Simulation
+
+* Machine models
+* Telemetry models
+* Simulator
+* Anomaly detection
+* Simulation controls
+
+## Phase 3 — Dashboard
+
+* Dashboard
+* Machine pages
+* Digital twin
+* Charts
+* Polling
+
+## Phase 4 — AI
+
+* Gemini service
+* LangGraph
+* Agents
+* Structured AI response
+
+## Phase 5 — n8n
+
+* Docker n8n
+* Webhook
+* Critical incident workflow
+* AI processing
+* Notification
+* Backend response
+
+## Phase 6 — Maintenance
+
+* Work orders
+* Automation execution tracking
+* Incident management
+
+## Phase 7 — Reports + Polish
+
+* PDF reports
+* Error handling
+* Loading states
+* Responsive design
+* UI polish
+* Demo mode
+
+---
+
+# 31. AI Agent Instructions for Kiro
+
+You are the primary implementation agent for ForgeFlow AI.
+
+Follow these rules:
+
+1. Read this entire PRD before making changes.
+2. Do not change the architecture without explaining why.
+3. Do not introduce unnecessary technologies.
+4. Do not use WebSockets.
+5. Do not introduce Redis, Kafka, Kubernetes, microservices, GraphQL, or unnecessary infrastructure.
+6. Use MongoDB + Mongoose.
+7. Use Docker only for the n8n environment.
+8. Keep the code modular and beginner-maintainable.
+9. Do not hardcode API keys or credentials.
+10. Do not create fake backend functionality.
+11. Every frontend action must connect to real functionality.
+12. Use realistic simulated telemetry.
+13. Keep AI responses structured.
+14. AI should analyze meaningful incidents, not every telemetry point.
+15. Build one phase at a time.
+16. After each phase, test the implementation before proceeding.
+17. Do not rewrite working functionality unnecessarily.
+18. Preserve existing project conventions where reasonable.
+19. Handle loading, errors, and unavailable services gracefully.
+20. Prioritize the complete Critical Incident → n8n → AI → Work Order flow.
+
+---
+
+# 32. Final Technical Acceptance Test
+
+The project is complete only when this works:
+
+```text
+MongoDB
+   ↓
+Telemetry Simulator
+   ↓
+Anomaly Detection
+   ↓
+Critical Incident
+   ↓
+n8n Docker
+   ↓
+Gemini + LangGraph
+   ↓
+AI Analysis
+   ↓
+Notification
+   ↓
+Work Order
+   ↓
+MongoDB
+   ↓
+React Dashboard
+```
+
+No physical IoT hardware is required.
+
+No WebSockets are required.
+
+The final application should demonstrate a technically credible **AI + IoT simulation + automation architecture** while remaining simple enough to maintain and understand.

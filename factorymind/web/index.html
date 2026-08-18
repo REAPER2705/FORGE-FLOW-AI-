@@ -1,0 +1,1257 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FactoryMind Digital Twin</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #080b0f;
+    --panel: #0f141b;
+    --panel2: #151b24;
+    --line: #26313d;
+    --text: #dde6ed;
+    --muted: #7e8b96;
+    --cyan: #6de7ff;
+    --green: #56d986;
+    --amber: #e7b955;
+    --red: #e06363;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; width: 100%; height: 100%; overflow: hidden;
+    background: var(--bg); color: var(--text);
+    font: 13px/1.4 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  #app { position: fixed; inset: 0; display: grid; grid-template-columns: minmax(0, 1fr) 390px; }
+  #stage { position: relative; min-width: 0; min-height: 0; }
+  #stage canvas { display: block; width: 100%; height: 100%; }
+  #hud {
+    position: absolute; left: 16px; top: 16px; display: flex; gap: 8px; align-items: center;
+    padding: 8px 10px; border: 1px solid rgba(109,231,255,.18);
+    background: rgba(8,11,15,.72); color: var(--muted); backdrop-filter: blur(10px);
+  }
+  #hud strong { color: var(--cyan); font-weight: 700; }
+  #hint {
+    position: absolute; left: 16px; bottom: 16px; color: var(--muted);
+    padding: 8px 10px; border: 1px solid rgba(255,255,255,.08);
+    background: rgba(8,11,15,.68); pointer-events: none;
+  }
+  aside {
+    min-width: 0; min-height: 0; padding: 16px; display: flex; flex-direction: column; gap: 12px;
+    border-left: 1px solid var(--line); background: linear-gradient(180deg, #10151d 0%, #0b1017 100%);
+  }
+  .brand { letter-spacing: .08em; font-weight: 800; color: var(--cyan); font-size: 18px; }
+  .sub { color: var(--muted); font-size: 11px; margin-top: 3px; }
+  .rule { height: 1px; background: var(--line); }
+  .metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .metric {
+    min-height: 58px; padding: 8px; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--panel2);
+  }
+  .metric .k { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .08em; white-space: nowrap; }
+  .metric .v { margin-top: 4px; color: var(--text); font-size: 20px; font-weight: 800; white-space: nowrap; }
+  .metric .v.good { color: var(--green); } .metric .v.warn { color: var(--amber); }
+  .tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .tab-panel { display: none; flex: 1 1 auto; min-height: 0; overflow: hidden; flex-direction: column; gap: 12px; }
+  .tab-panel.active { display: flex; }
+  .controls { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  button {
+    height: 34px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel2);
+    color: var(--text); font: 700 11px/1 Inter, ui-sans-serif, system-ui; letter-spacing: .04em; cursor: pointer;
+  }
+  button:hover, button.active { border-color: var(--cyan); color: var(--cyan); }
+  button.good { color: var(--green); border-color: rgba(86,217,134,.35); }
+  button.warn { color: var(--amber); border-color: rgba(231,185,85,.35); }
+  button.bad { color: var(--red); border-color: rgba(224,99,99,.4); }
+  .build-card {
+    display: grid; gap: 10px; padding: 10px; border: 1px solid var(--line);
+    border-radius: 8px; background: rgba(255,255,255,.025);
+  }
+  .field { display: grid; gap: 6px; color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+  select {
+    width: 100%; height: 34px; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--panel2); color: var(--text); padding: 0 10px;
+    font: 700 12px/1 Inter, ui-sans-serif, system-ui;
+  }
+  input[type="file"] {
+    width: 100%; color: var(--muted); font-size: 11px;
+  }
+  input[type="range"] {
+    width: 100%;
+    accent-color: var(--cyan);
+  }
+  .twin-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  #layout-preview {
+    width: 100%;
+    height: 190px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #0b1017;
+  }
+  #layout-status, #recommendations, #scenario-table {
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.45;
+  }
+  #layout-status strong { color: var(--text); }
+  #layout-status .bad { color: var(--red); }
+  #layout-status .good { color: var(--green); }
+  #recommendations {
+    display: grid;
+    gap: 6px;
+    padding: 8px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(255,255,255,.025);
+  }
+  .scenario-row {
+    display: grid;
+    grid-template-columns: 1.2fr .8fr .8fr .8fr;
+    gap: 6px;
+    padding: 5px 0;
+    border-bottom: 1px solid rgba(255,255,255,.06);
+  }
+  .scenario-row:last-child { border-bottom: 0; }
+  .build-note { color: var(--muted); font-size: 11px; line-height: 1.45; }
+  .section { display: flex; justify-content: space-between; align-items: center; color: var(--cyan); font-size: 11px; font-weight: 800; letter-spacing: .08em; }
+  #status { color: var(--amber); }
+  #workers { display: grid; gap: 6px; }
+  .worker {
+    display: grid; grid-template-columns: 74px minmax(0,1fr) 12px; gap: 8px; align-items: center;
+    padding: 6px 8px; border: 1px solid rgba(255,255,255,.06); border-radius: 7px; background: rgba(255,255,255,.025);
+  }
+  .worker b { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .worker span { color: var(--muted); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); box-shadow: 0 0 10px currentColor; }
+  #log {
+    flex: 1 1 auto; min-height: 160px; overflow: hidden; padding: 8px;
+    border: 1px solid var(--line); border-radius: 8px; background: #0a0f15;
+  }
+  .log { display: grid; grid-template-columns: 50px 72px minmax(0,1fr); gap: 6px; padding: 2px 0; font-size: 10px; white-space: nowrap; }
+  .log span { overflow: hidden; text-overflow: ellipsis; }
+  .time, .muted { color: var(--muted); }
+  .ASSIGN { color: var(--cyan); } .COMPLETE { color: var(--green); } .WARNING { color: var(--amber); } .RETHINK { color: #c78cff; }
+  #endpoints { color: var(--muted); font-size: 10px; white-space: pre-wrap; max-height: 70px; overflow: hidden; }
+  @media (max-width: 980px) { #app { grid-template-columns: 1fr; } aside { position:absolute; right:0; top:0; bottom:0; width:min(390px,100vw); background:rgba(15,20,27,.96); } }
+</style>
+<script type="importmap">
+{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}
+</script>
+</head>
+<body>
+<div id="app">
+  <main id="stage">
+    <div id="hud"><strong>R2D2</strong><span id="layout">LIVE OPS</span></div>
+    <div id="hint">Drag rotate · scroll zoom · right drag pan · build shelves/add workers from controls</div>
+  </main>
+  <aside>
+    <div>
+      <div class="brand">FACTORYMIND</div>
+      <div class="sub">Autonomous warehouse operations monitor</div>
+    </div>
+    <div class="tabs">
+      <button class="active" id="tab-ops">OPERATIONS</button>
+      <button id="tab-build">BUILD MODE</button>
+      <button id="tab-twin">FILES</button>
+    </div>
+    <div class="tab-panel active" id="ops-panel">
+      <div class="metrics">
+        <div class="metric"><div class="k">Dropped off</div><div class="v good" id="m-dropped">0</div></div>
+        <div class="metric"><div class="k">Pending</div><div class="v warn" id="m-pending">0</div></div>
+        <div class="metric"><div class="k">Rate/min</div><div class="v" id="m-rate">0.0</div></div>
+        <div class="metric"><div class="k">Active bots</div><div class="v" id="m-active">0</div></div>
+        <div class="metric"><div class="k">Avg task</div><div class="v" id="m-avg">--</div></div>
+        <div class="metric"><div class="k">Conveyors</div><div class="v" id="m-conveyors">0</div></div>
+      </div>
+      <div class="controls">
+        <button class="good" id="start">START</button>
+        <button class="warn" id="stop">PAUSE</button>
+        <button class="bad" id="reset">RESET</button>
+        <button id="speed">SPEED 1x</button>
+        <button id="spike">ORDER SPIKE</button>
+        <button id="disable">DISABLE BOT</button>
+      </div>
+      <div class="rule"></div>
+      <div class="section"><span>ROBOT FLEET</span><span id="status">STOPPED</span></div>
+      <div id="workers"></div>
+      <div class="section"><span>AGENT EVENT LOG</span></div>
+      <div id="log"></div>
+      <div id="endpoints"></div>
+    </div>
+    <div class="tab-panel" id="build-panel">
+      <div class="build-card">
+        <div class="section"><span>PLACE ASSET</span><span id="build-status">CAMERA</span></div>
+        <div class="controls">
+          <button id="camera-mode">CAMERA</button>
+          <button id="build-shelf">SHELVES</button>
+          <button id="build-conveyor">CONVEYOR</button>
+          <button id="build-dropbox">DROP BOX</button>
+          <button id="add-worker">WORKER</button>
+          <button id="remove-asset">REMOVE</button>
+        </div>
+        <label class="field">Package type
+          <select id="build-color">
+            <option>Red</option>
+            <option>Blue</option>
+            <option>Green</option>
+            <option>Yellow</option>
+            <option>Magenta</option>
+            <option>Cyan</option>
+          </select>
+        </label>
+        <div class="build-note">
+          Recommended PNG size: 50x50 pixels. Larger PNGs work, but they are sampled down to a 50x50 grid, so use crisp block colors with no antialiasing.
+          <br><br>
+          Base legend: white floor, black wall, #2563EB shelf, #16A34A generic conveyor, #F97316 generic bin, #9333EA charger, #DC2626 restricted, #EAB308 worker spawn.
+          <br><br>
+          Typed conveyors: Red #7F1D1D, Blue #1E3A8A, Green #14532D, Yellow #713F12, Magenta #581C87, Cyan #164E63.
+          Typed bins: Red #FCA5A5, Blue #93C5FD, Green #86EFAC, Yellow #FEF08A, Magenta #F0ABFC, Cyan #A5F3FC.
+        </div>
+        <div class="build-note">
+          Shelves become blocked route cells. Conveyors create intake factories for the selected package type. Drop boxes accept that same type, and workers will choose the reachable matching box with the shortest route.
+        </div>
+      </div>
+      <div class="section"><span>BUILD SUMMARY</span></div>
+      <div class="metrics">
+        <div class="metric"><div class="k">Shelves</div><div class="v" id="b-shelves">0</div></div>
+        <div class="metric"><div class="k">Conveyors</div><div class="v" id="b-conveyors">0</div></div>
+        <div class="metric"><div class="k">Drop boxes</div><div class="v" id="b-dropboxes">0</div></div>
+      </div>
+    </div>
+    <div class="tab-panel" id="twin-panel">
+      <div class="build-card">
+        <div class="section"><span>LAYOUT UPLOAD</span><span>PNG COLOR MAP</span></div>
+        <label class="field">Upload controlled PNG
+          <input type="file" id="layout-file" accept="image/png">
+        </label>
+        <canvas id="layout-preview" width="320" height="220"></canvas>
+        <div id="layout-status">Upload a PNG using the warehouse color map.</div>
+        <div class="build-note">
+          Recommended PNG size: 50x50 pixels. Larger PNGs work, but they are sampled down to a 50x50 grid, so use crisp block colors with no antialiasing.
+          <br><br>
+          Base legend: white floor, black wall, #2563EB shelf, #16A34A generic conveyor, #F97316 generic bin, #9333EA charger, #DC2626 restricted, #EAB308 worker spawn.
+          <br><br>
+          Typed conveyors: Red #7F1D1D, Blue #1E3A8A, Green #14532D, Yellow #713F12, Magenta #581C87, Cyan #164E63.
+          Typed bins: Red #FCA5A5, Blue #93C5FD, Green #86EFAC, Yellow #FEF08A, Magenta #F0ABFC, Cyan #A5F3FC.
+        </div>
+        <div class="twin-grid">
+          <label class="field">Workers <span id="worker-count-value">3</span>
+            <input type="range" id="worker-count" min="1" max="16" value="3">
+          </label>
+          <label class="field">Order volume <span id="order-volume-value">6</span>
+            <input type="range" id="order-volume" min="1" max="20" value="6">
+          </label>
+        </div>
+        <div class="controls">
+          <button class="good" id="apply-layout">APPLY LAYOUT</button>
+          <button id="save-layout-json">SAVE JSON</button>
+          <button id="load-layout-json-btn">LOAD JSON</button>
+        </div>
+        <input type="file" id="layout-json-file" accept="application/json,.json" hidden>
+      </div>
+      <div class="section"><span>SCENARIOS</span><span>BASELINE / VARIANTS</span></div>
+      <div class="controls">
+        <button id="capture-baseline">SET BASELINE</button>
+        <button id="capture-variant">SAVE VARIANT</button>
+        <button id="clear-scenarios">CLEAR</button>
+      </div>
+      <div id="scenario-table"></div>
+      <div class="section"><span>RECOMMENDATIONS</span></div>
+      <div id="recommendations">Run a scenario to generate layout recommendations.</div>
+    </div>
+  </aside>
+</div>
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { parseLayoutImageFile, drawLayoutPreview } from "./static/layoutParser.js";
+import { validateLayout } from "./static/layoutValidation.js";
+import { buildApplyLayoutAction, downloadJson, exportLayoutJson, readJsonFile } from "./static/layoutAdapter.js";
+import { collectMetrics, formatMetric } from "./static/metricsCollector.js";
+import { buildRecommendations } from "./static/recommendationEngine.js";
+import { compareScenarios, createScenario } from "./static/scenarioRunner.js";
+
+const GRID = 50;
+const STATE_URL = "/state.json";
+const ACTION_URL = "/action";
+const colorFallback = {Red:0xe84848, Blue:0x4482eb, Green:0x48d276, Yellow:0xebcd46, Magenta:0xd64eeb, Cyan:0x00d4ff};
+const statusColor = {idle:0x7f8c9a, to_pickup:0x6de7ff, to_dropbox:0x56d986, disabled:0xe06363};
+const stage = document.getElementById("stage");
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+stage.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x070a0e);
+scene.fog = new THREE.Fog(0x070a0e, 60, 145);
+
+const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 220);
+camera.position.set(45, 44, 66);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(25, 0, 25);
+controls.enableDamping = true;
+controls.dampingFactor = 0.075;
+controls.maxPolarAngle = Math.PI * 0.49;
+controls.minDistance = 18;
+controls.maxDistance = 130;
+
+scene.add(new THREE.HemisphereLight(0xd9edf4, 0x121720, 1.2));
+const sun = new THREE.DirectionalLight(0xffffff, 1.65);
+sun.position.set(42, 70, 28);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.left = -35; sun.shadow.camera.right = 85; sun.shadow.camera.top = 85; sun.shadow.camera.bottom = -35;
+scene.add(sun);
+const rim = new THREE.DirectionalLight(0x6ca6ff, 0.45);
+rim.position.set(-35, 40, -42);
+scene.add(rim);
+
+const floor = new THREE.Mesh(
+  new THREE.PlaneGeometry(GRID, GRID),
+  new THREE.MeshStandardMaterial({ color: 0x222831, roughness: 0.92, metalness: 0.08 }),
+);
+floor.geometry.rotateX(-Math.PI / 2);
+floor.position.set(GRID / 2, 0, GRID / 2);
+floor.receiveShadow = true;
+scene.add(floor);
+const grid = new THREE.GridHelper(GRID, 50, 0x394554, 0x2b333e);
+grid.position.set(GRID / 2, 0.018, GRID / 2);
+scene.add(grid);
+
+const shelves = new THREE.Group();
+scene.add(shelves);
+
+const factories = new Map(), dropboxes = new Map(), workers = new Map(), packages = new Map(), walls = new Map();
+const workerVisual = new Map();
+let pathLines = [], latestWorld = {}, leaderTower = null;
+let buildMode = "camera";
+let activeTab = "ops";
+let uploadedLayout = null;
+let uploadedValidation = null;
+let scenarios = [];
+const buildRotation = { dropbox: 0, factory: 0 };
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
+const pickPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+const pickPoint = new THREE.Vector3();
+let pointerDown = null;
+const preview = new THREE.Mesh(
+  new THREE.BoxGeometry(1, 0.08, 1),
+  new THREE.MeshBasicMaterial({ color: 0x6de7ff, transparent: true, opacity: 0.35, depthWrite: false }),
+);
+preview.position.y = 0.09;
+preview.visible = false;
+scene.add(preview);
+
+function makeOutlinePart(w, h, d, x, y, z, lineMat, fillMat) {
+  const part = new THREE.Group();
+  const geom = new THREE.BoxGeometry(w, h, d);
+  const fill = new THREE.Mesh(geom, fillMat);
+  fill.position.set(x, y, z);
+  part.add(fill);
+  const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geom), lineMat);
+  edges.position.set(x, y, z);
+  part.add(edges);
+  return part;
+}
+function makeFactoryOutline() {
+  const group = new THREE.Group();
+  const lineMat = new THREE.LineBasicMaterial({ color: 0x6de7ff, transparent: true, opacity: 0.95, depthWrite: false });
+  const fillMat = new THREE.MeshBasicMaterial({ color: 0x6de7ff, transparent: true, opacity: 0.18, depthWrite: false });
+  group.userData.line = lineMat;
+  group.userData.fill = fillMat;
+  group.add(makeOutlinePart(3.2, 1.45, 2.7, 1.6, 0.72, 1.35, lineMat, fillMat));
+  group.add(makeOutlinePart(5.0, 0.16, 0.98, 5.5, 0.18, 1.5, lineMat, fillMat));
+  group.add(makeOutlinePart(1.1, 0.08, 1.1, 8.0, 0.10, 1.5, lineMat, fillMat));
+  return group;
+}
+function makeDropboxOutline() {
+  const group = new THREE.Group();
+  const lineMat = new THREE.LineBasicMaterial({ color: 0x6de7ff, transparent: true, opacity: 0.95, depthWrite: false });
+  const fillMat = new THREE.MeshBasicMaterial({ color: 0x6de7ff, transparent: true, opacity: 0.18, depthWrite: false });
+  group.userData.line = lineMat;
+  group.userData.fill = fillMat;
+  group.add(makeOutlinePart(3.0, 0.12, 2.2, 1.5, 0.06, 1.1, lineMat, fillMat));
+  group.add(makeOutlinePart(3.0, 0.9, 0.16, 1.5, 0.52, 2.1, lineMat, fillMat));
+  group.add(makeOutlinePart(0.16, 0.9, 2.2, 0.08, 0.52, 1.1, lineMat, fillMat));
+  group.add(makeOutlinePart(0.16, 0.9, 2.2, 2.92, 0.52, 1.1, lineMat, fillMat));
+  return group;
+}
+function tintOutline(outline, color, ok) {
+  outline.userData.line.color.setHex(color);
+  outline.userData.line.opacity = ok ? 0.95 : 0.4;
+  outline.userData.fill.color.setHex(color);
+  outline.userData.fill.opacity = ok ? 0.18 : 0.07;
+}
+const factoryOutline = makeFactoryOutline();
+factoryOutline.visible = false;
+scene.add(factoryOutline);
+const dropboxOutline = makeDropboxOutline();
+dropboxOutline.visible = false;
+scene.add(dropboxOutline);
+function hidePreviews() {
+  preview.visible = false;
+  factoryOutline.visible = false;
+  dropboxOutline.visible = false;
+}
+
+function addRack(x, z) {
+  const group = new THREE.Group();
+  const metal = new THREE.MeshStandardMaterial({ color: 0x59616a, roughness: 0.52, metalness: 0.55 });
+  const crateMats = [0x6a4d36, 0x705b45, 0x4d5962].map(c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.82 }));
+  for (const px of [-1.2, 1.2]) {
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.12, 2.5, 0.12), metal);
+    post.position.set(px, 1.25, -1.4); group.add(post);
+    const post2 = post.clone(); post2.position.z = 1.4; group.add(post2);
+  }
+  for (let level = 0; level < 3; level++) {
+    const beam = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.08, 3.0), metal);
+    beam.position.y = 0.45 + level * 0.8; group.add(beam);
+    for (let i = 0; i < 3; i++) {
+      const crate = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.36, 0.58), crateMats[(i + level) % crateMats.length]);
+      crate.position.set(-0.8 + i * 0.8, 0.68 + level * 0.8, -0.65 + (i % 2) * 1.1);
+      crate.castShadow = true; group.add(crate);
+    }
+  }
+  group.position.set(x, 0, z);
+  shelves.add(group);
+}
+
+function makeShelfObstacle() {
+  const group = new THREE.Group();
+  const metal = new THREE.MeshStandardMaterial({ color: 0x525b64, roughness: 0.5, metalness: 0.58 });
+  const shadow = new THREE.MeshStandardMaterial({ color: 0x222a32, roughness: 0.8, metalness: 0.1 });
+  const boxMats = [0x6c5138, 0x7a6448, 0x47535d].map(c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.82, metalness: 0.03 }));
+  const base = new THREE.Mesh(new THREE.BoxGeometry(0.96, 0.06, 0.96), shadow);
+  base.position.y = 0.03; group.add(base);
+  for (const x of [-0.38, 0.38]) {
+    for (const z of [-0.38, 0.38]) {
+      const post = new THREE.Mesh(new THREE.BoxGeometry(0.07, 1.58, 0.07), metal);
+      post.position.set(x, 0.82, z); post.castShadow = true; group.add(post);
+    }
+  }
+  for (let level = 0; level < 3; level++) {
+    const shelf = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.06, 0.9), metal);
+    shelf.position.y = 0.36 + level * 0.48; shelf.castShadow = true; group.add(shelf);
+    const crate = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.22, 0.34), boxMats[level % boxMats.length]);
+    crate.position.set(level % 2 ? -0.18 : 0.18, shelf.position.y + 0.15, level % 2 ? 0.14 : -0.16);
+    crate.castShadow = true; group.add(crate);
+  }
+  return group;
+}
+
+function makeLeaderTower() {
+  const group = new THREE.Group();
+  const leaderGlow = 0xeab308;
+  const steel = new THREE.MeshStandardMaterial({ color: 0x4a5662, roughness: 0.44, metalness: 0.62 });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x111820, roughness: 0.68, metalness: 0.2 });
+  const glass = new THREE.MeshStandardMaterial({ color: 0x3a3016, emissive: leaderGlow, emissiveIntensity: 0.18, roughness: 0.22, metalness: 0.18, transparent: true, opacity: 0.74 });
+  const base = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.18, 3.2), dark);
+  base.position.set(0, 0.09, 0); base.castShadow = true; group.add(base);
+  for (const x of [-1.25, 1.25]) {
+    for (const z of [-1.25, 1.25]) {
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 4.2, 12), steel);
+      leg.position.set(x, 2.15, z); leg.castShadow = true; group.add(leg);
+    }
+  }
+  for (let y = 0.9; y < 4.0; y += 0.72) {
+    const deck = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.06, 2.8), steel);
+    deck.position.set(0, y, 0); deck.castShadow = true; group.add(deck);
+  }
+  const cabin = new THREE.Mesh(new THREE.BoxGeometry(2.25, 1.1, 1.75), glass);
+  cabin.position.set(0, 4.25, 0); cabin.castShadow = true; group.add(cabin);
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(2.55, 0.14, 2.05), steel);
+  roof.position.set(0, 4.9, 0); roof.castShadow = true; group.add(roof);
+  const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 1.2, 10), steel);
+  antenna.position.set(0.82, 5.55, -0.55); group.add(antenna);
+  const dish = new THREE.Mesh(new THREE.SphereGeometry(0.22, 18, 10), new THREE.MeshStandardMaterial({ color: leaderGlow, emissive: leaderGlow, emissiveIntensity: 0.45 }));
+  dish.position.set(0.82, 6.15, -0.55); group.add(dish); group.userData.dish = dish;
+  const beam = new THREE.Mesh(new THREE.ConeGeometry(0.95, 5.8, 32, 1, true), new THREE.MeshBasicMaterial({ color: leaderGlow, transparent: true, opacity: 0.08, depthWrite: false }));
+  beam.rotation.x = Math.PI;
+  beam.position.set(0, 1.85, 0);
+  group.add(beam); group.userData.beam = beam;
+  const label = makeLabel("LEADER", "#f6d85c");
+  label.position.set(0, 6.35, 0); group.add(label);
+  return group;
+}
+
+function worldPos(cell) { return { x: cell[0] + 0.5, z: cell[1] + 0.5 }; }
+function hexFrom(rgb, name) { return rgb ? ((rgb[0]<<16) + (rgb[1]<<8) + rgb[2]) : (colorFallback[name] || 0x9aa3ad); }
+function dispose(obj) {
+  obj.traverse(c => {
+    if (c.geometry) c.geometry.dispose();
+    const materials = Array.isArray(c.material) ? c.material : c.material ? [c.material] : [];
+    for (const material of materials) {
+      material.map?.dispose?.();
+      material.dispose?.();
+    }
+  });
+}
+
+function makeLabel(text, color = "#dde6ed") {
+  const canvas = document.createElement("canvas"); canvas.width = 384; canvas.height = 96;
+  const ctx = canvas.getContext("2d"); ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  let size = 42;
+  do {
+    ctx.font = `700 ${size}px Inter, sans-serif`;
+    size -= 2;
+  } while (ctx.measureText(text).width > 350 && size >= 22);
+  ctx.fillStyle = color; ctx.shadowColor = "rgba(0,0,0,.9)"; ctx.shadowBlur = 10; ctx.fillText(text, 192, 48);
+  const tex = new THREE.CanvasTexture(canvas);
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+  sprite.scale.set(4.4, 1.1, 1);
+  return sprite;
+}
+
+function disposeLabel(label) {
+  label.material?.map?.dispose?.();
+  label.material?.dispose?.();
+}
+
+function setFloatingLabel(group, text, color, x, y, z) {
+  if (group.userData.labelText === text) return;
+  if (group.userData.label) {
+    group.remove(group.userData.label);
+    disposeLabel(group.userData.label);
+  }
+  const label = makeLabel(text, color);
+  label.position.set(x, y, z);
+  group.add(label);
+  group.userData.label = label;
+  group.userData.labelText = text;
+}
+
+function factoryQueueCount(factory) {
+  return (factory.conveyor || []).length + (factory.pad_packages || []).length;
+}
+
+function syncFactories(world) {
+  const seen = new Set();
+  for (const f of world.factories || []) {
+    seen.add(f.id);
+    const signature = `${f.name}|${f.color}|${JSON.stringify(f.color_rgb || [])}|${f.belt_length || 5}|${JSON.stringify(f.drop_pad || [])}`;
+    if (factories.has(f.id) && factories.get(f.id).userData.signature !== signature) {
+      const stale = factories.get(f.id);
+      scene.remove(stale);
+      dispose(stale);
+      factories.delete(f.id);
+    }
+    if (!factories.has(f.id)) {
+      const g = new THREE.Group();
+      g.userData.signature = signature;
+      const color = hexFrom(f.color_rgb, f.color);
+      const shell = new THREE.Mesh(new THREE.BoxGeometry(3.2, 1.45, 2.7), new THREE.MeshStandardMaterial({ color: 0x303944, roughness: 0.52, metalness: 0.38 }));
+      shell.position.set(1.6, 0.72, 1.35); shell.castShadow = true; g.add(shell);
+      const face = new THREE.Mesh(new THREE.BoxGeometry(2.55, 0.9, 0.08), new THREE.MeshStandardMaterial({ color: 0x141a20, roughness: 0.78, metalness: 0.16 }));
+      face.position.set(3.22, 0.62, 1.35); face.castShadow = true; g.add(face);
+      const display = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.42, 0.04), new THREE.MeshStandardMaterial({ color: 0x08151a, emissive: color, emissiveIntensity: 0.18, roughness: 0.35, metalness: 0.2 }));
+      display.position.set(3.27, 0.92, 1.35); g.add(display);
+      const ventMat = new THREE.MeshStandardMaterial({ color: 0x151b22, roughness: 0.68, metalness: 0.24 });
+      for (let i = 0; i < 4; i++) {
+        const vent = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.36, 0.04), ventMat);
+        vent.position.set(3.29, 0.42, 0.82 + i * 0.34); g.add(vent);
+      }
+      const beltLen = f.belt_length || 5;
+      const belt = new THREE.Mesh(new THREE.BoxGeometry(beltLen, 0.16, 0.98), new THREE.MeshStandardMaterial({ color: 0x1c2229, roughness: 0.78, metalness: 0.22 }));
+      belt.position.set(3 + beltLen / 2, 0.18, 1.5); g.add(belt);
+      const beltGlow = new THREE.Mesh(new THREE.BoxGeometry(beltLen, 0.025, 0.08), new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.32, roughness: 0.45 }));
+      beltGlow.position.set(3 + beltLen / 2, 0.36, 1.5); g.add(beltGlow);
+      const rollerMat = new THREE.MeshStandardMaterial({ color: 0x65717b, roughness: 0.4, metalness: 0.72 });
+      for (let i = 0; i < beltLen; i++) {
+        const roller = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.92, 16), rollerMat);
+        roller.rotation.z = Math.PI / 2;
+        roller.position.set(3.4 + i * 0.82, 0.31, 1.5);
+        g.add(roller);
+      }
+      const railMat = new THREE.MeshStandardMaterial({ color: 0x87909a, roughness: 0.45, metalness: 0.62 });
+      for (const z of [0.92, 2.08]) {
+        const rail = new THREE.Mesh(new THREE.BoxGeometry(beltLen + 0.3, 0.08, 0.08), railMat);
+        rail.position.set(3 + beltLen / 2, 0.48, z); g.add(rail);
+      }
+      const cabinet = new THREE.Mesh(new THREE.BoxGeometry(0.54, 0.9, 0.42), new THREE.MeshStandardMaterial({ color: 0x202832, roughness: 0.5, metalness: 0.35 }));
+      cabinet.position.set(0.45, 0.48, 2.95); cabinet.castShadow = true; g.add(cabinet);
+      const cableMat = new THREE.MeshStandardMaterial({ color: 0x12171d, roughness: 0.55, metalness: 0.45 });
+      for (const z of [0.52, 2.18]) {
+        const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 2.6, 16), cableMat);
+        pipe.rotation.z = Math.PI / 2;
+        pipe.position.set(1.55, 1.24, z);
+        pipe.castShadow = true; g.add(pipe);
+      }
+      const gantryMat = new THREE.MeshStandardMaterial({ color: 0x46515c, roughness: 0.46, metalness: 0.62 });
+      for (const x of [3.2, 7.3]) {
+        const upright = new THREE.Mesh(new THREE.BoxGeometry(0.09, 1.3, 0.09), gantryMat);
+        upright.position.set(x, 0.78, 0.78); upright.castShadow = true; g.add(upright);
+        const upright2 = upright.clone(); upright2.position.z = 2.22; g.add(upright2);
+      }
+      const gantry = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.08, 1.55), gantryMat);
+      gantry.position.set(5.25, 1.42, 1.5); gantry.castShadow = true; g.add(gantry);
+      const scanner = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.22, 1.05), new THREE.MeshStandardMaterial({ color: 0x111820, emissive: color, emissiveIntensity: 0.22, roughness: 0.42, metalness: 0.35 }));
+      scanner.position.set(5.25, 1.24, 1.5); scanner.castShadow = true; g.add(scanner);
+      const stripeMat = [
+        new THREE.MeshStandardMaterial({ color: 0xe0aa3a, roughness: 0.62, metalness: 0.08 }),
+        new THREE.MeshStandardMaterial({ color: 0x17191d, roughness: 0.72, metalness: 0.05 }),
+      ];
+      for (let i = 0; i < 8; i++) {
+        const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.025, 0.08), stripeMat[i % 2]);
+        stripe.position.set(3.35 + i * 0.38, 0.055, 0.68);
+        g.add(stripe);
+      }
+      const pad = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.08, 1.1), new THREE.MeshStandardMaterial({ color: 0x171e25, emissive: color, emissiveIntensity: 0.28 }));
+      pad.position.set(f.drop_pad[0] - f.pos[0] + 0.5, 0.1, f.drop_pad[1] - f.pos[1] + 0.5); g.add(pad);
+      const beacon = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.16, 18), new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.55 }));
+      beacon.position.set(1.6, 1.56, 1.35); g.add(beacon);
+      const top = new THREE.Mesh(new THREE.BoxGeometry(2.35, 0.12, 2.0), new THREE.MeshStandardMaterial({ color: 0x68737d, roughness: 0.5, metalness: 0.46 }));
+      top.position.set(1.6, 1.48, 1.35); g.add(top);
+      scene.add(g); factories.set(f.id, g);
+    }
+    const g = factories.get(f.id);
+    setFloatingLabel(g, `${f.name} (${factoryQueueCount(f)})`, "#bfcbd4", 1.6, 2.25, 1.6);
+    g.position.set(f.pos[0], 0, f.pos[1]); g.rotation.y = Number(f.rotation_y || 0);
+  }
+  for (const [id, g] of factories) if (!seen.has(id)) { scene.remove(g); dispose(g); factories.delete(id); }
+}
+
+function syncDropboxes(world) {
+  const seen = new Set();
+  for (const b of world.dropboxes || []) {
+    seen.add(b.id);
+    const signature = `${b.name}|${b.color}|${JSON.stringify(b.color_rgb || [])}`;
+    if (dropboxes.has(b.id) && dropboxes.get(b.id).userData.signature !== signature) {
+      const stale = dropboxes.get(b.id);
+      scene.remove(stale);
+      dispose(stale);
+      dropboxes.delete(b.id);
+    }
+    if (!dropboxes.has(b.id)) {
+      const g = new THREE.Group();
+      g.userData.signature = signature;
+      const color = hexFrom(b.color_rgb, b.color);
+      const mat = new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.12, roughness: 0.48, metalness: 0.25 });
+      const floor = new THREE.Mesh(new THREE.BoxGeometry(3, 0.12, 2.2), new THREE.MeshStandardMaterial({ color: 0x46515c, roughness: 0.72, metalness: 0.08 }));
+      floor.position.set(1.5, 0.06, 1.1); g.add(floor);
+      const back = new THREE.Mesh(new THREE.BoxGeometry(3, 0.9, 0.16), mat); back.position.set(1.5, 0.52, 2.1); g.add(back);
+      const left = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.9, 2.2), mat); left.position.set(0.08, 0.52, 1.1); g.add(left);
+      const right = left.clone(); right.position.x = 2.92; g.add(right);
+      scene.add(g); dropboxes.set(b.id, g);
+    }
+    const g = dropboxes.get(b.id);
+    setFloatingLabel(g, `${b.name} (${Number(b.delivered || 0)})`, "#c9d0d8", 1.5, 1.65, 1.1);
+    g.position.set(b.pos[0], 0, b.pos[1]); g.rotation.y = Number(b.rotation_y || 0);
+  }
+  for (const [id, g] of dropboxes) if (!seen.has(id)) { scene.remove(g); dispose(g); dropboxes.delete(id); }
+}
+
+function syncWorkers(world) {
+  const seen = new Set();
+  for (const w of world.workers || []) {
+    seen.add(w.id);
+    if (!workers.has(w.id)) {
+      const g = new THREE.Group();
+      const body = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.34, 0.72), new THREE.MeshStandardMaterial({ color: 0x20252b, roughness: 0.36, metalness: 0.55 }));
+      body.position.y = 0.34; body.castShadow = true; g.add(body); g.userData.body = body;
+      const light = new THREE.Mesh(new THREE.SphereGeometry(0.13, 16, 10), new THREE.MeshStandardMaterial({ color: 0x7f8c9a, emissive: 0x7f8c9a, emissiveIntensity: 0.9 }));
+      light.position.set(0.38, 0.58, 0); g.add(light); g.userData.light = light;
+      const load = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.42, 0.42), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.55 }));
+      load.position.set(-0.16, 0.72, 0); load.visible = false; g.add(load); g.userData.load = load;
+      scene.add(g); workers.set(w.id, g);
+    }
+    const p = worldPos(w.pos);
+    let v = workerVisual.get(w.id);
+    if (!v) { v = { x: p.x, z: p.z, target: p }; workerVisual.set(w.id, v); workers.get(w.id).position.set(p.x, 0, p.z); }
+    else v.target = p;
+    const g = workers.get(w.id), color = statusColor[w.status] || 0x7f8c9a;
+    setFloatingLabel(g, w.name || `R${w.id}D${w.id}`, "#dde6ed", 0, 1.35, 0);
+    g.userData.light.material.color.setHex(color); g.userData.light.material.emissive.setHex(color);
+    g.userData.load.visible = Boolean(w.carrying);
+    if (w.carrying) g.userData.load.material.color.setHex(hexFrom(w.carrying.color_rgb, w.carrying.color));
+  }
+  for (const [id, g] of workers) if (!seen.has(id)) { scene.remove(g); dispose(g); workers.delete(id); workerVisual.delete(id); }
+}
+
+function packagePosition(world, pkg, padIndex, deliveredIndex) {
+  if (pkg.status === "conveyor") {
+    const f = (world.factories || []).find(x => x.id === pkg.factory_id); if (!f) return null;
+    return { x: f.belt_start[0] + Math.min(pkg.progress || 0, f.belt_length || 5) + .5, y: .42, z: f.belt_start[1] + .5 };
+  }
+  if (pkg.status === "pad") {
+    const f = (world.factories || []).find(x => x.id === pkg.factory_id); if (!f) return null;
+    const i = padIndex.get(pkg.id) || 0;
+    return { x: f.drop_pad[0] + .3 + (i % 2) * .32, y: .34 + i * .12, z: f.drop_pad[1] + .3 + Math.floor(i / 2) * .24 };
+  }
+  if (pkg.status === "delivered") {
+    const b = (world.dropboxes || []).find(x => x.id === pkg.delivered_to); if (!b) return null;
+    const i = deliveredIndex.get(pkg.id) || 0;
+    const layerSize = 6;
+    const slot = i % layerSize;
+    const layer = Math.floor(i / layerSize);
+    const localX = 0.65 + (slot % 3) * 0.85;
+    const localZ = 0.62 + Math.floor(slot / 3) * 0.72;
+    const rotation = Number(b.rotation_y || 0);
+    const cos = Math.cos(rotation), sin = Math.sin(rotation);
+    return {
+      x: b.pos[0] + localX * cos - localZ * sin,
+      y: 0.34 + layer * 0.42,
+      z: b.pos[1] + localX * sin + localZ * cos,
+    };
+  }
+  return null;
+}
+
+function syncPackages(world) {
+  const padIndex = new Map();
+  for (const f of world.factories || []) (f.pad_packages || []).forEach((p, i) => padIndex.set(p.id, Math.min(i, 5)));
+  const deliveredIndex = new Map();
+  const deliveredCounts = new Map();
+  for (const p of world.packages || []) {
+    if (p.status !== "delivered" || p.delivered_to === undefined || p.delivered_to === null) continue;
+    const count = deliveredCounts.get(p.delivered_to) || 0;
+    deliveredIndex.set(p.id, count);
+    deliveredCounts.set(p.delivered_to, count + 1);
+  }
+  const seen = new Set();
+  for (const p of world.packages || []) {
+    const pos = packagePosition(world, p, padIndex, deliveredIndex); if (!pos) continue;
+    seen.add(p.id);
+    if (!packages.has(p.id)) {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(.48,.42,.48), new THREE.MeshStandardMaterial({ color: hexFrom(p.color_rgb,p.color), roughness:.65 }));
+      mesh.castShadow = true; scene.add(mesh); packages.set(p.id, mesh);
+    }
+    const mesh = packages.get(p.id); mesh.material.color.setHex(hexFrom(p.color_rgb,p.color)); mesh.position.set(pos.x,pos.y,pos.z);
+  }
+  for (const [id, mesh] of packages) if (!seen.has(id)) { scene.remove(mesh); dispose(mesh); packages.delete(id); }
+}
+
+function syncWalls(world) {
+  const seen = new Set();
+  for (const c of world.wall || []) {
+    const key = c[0] + "," + c[1]; seen.add(key);
+    if (!walls.has(key)) {
+      const m = makeShelfObstacle();
+      const p = worldPos(c);
+      m.position.set(p.x, 0, p.z);
+      // Built shelf cells are also world.wall cells, so pathfinding routes agents around them.
+      scene.add(m); walls.set(key,m);
+    }
+  }
+  for (const [key, m] of walls) if (!seen.has(key)) { scene.remove(m); dispose(m); walls.delete(key); }
+}
+
+function syncPaths(world) {
+  for (const l of pathLines) { scene.remove(l); l.geometry.dispose(); l.material.dispose(); }
+  pathLines = [];
+  for (const w of world.workers || []) {
+    if (!w.path || !w.path.length) continue;
+    const color = statusColor[w.status] || 0x6de7ff;
+    const pts = [worldPos(w.pos), ...w.path.map(worldPos)].map(p => new THREE.Vector3(p.x, .08, p.z));
+    const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color, transparent: true, opacity: .48 }));
+    scene.add(line); pathLines.push(line);
+  }
+}
+
+function syncLeader(world) {
+  const leader = world.leader || {};
+  if (!leaderTower) {
+    leaderTower = makeLeaderTower();
+    scene.add(leaderTower);
+  }
+  const p = worldPos(leader.pos || [25, 47]);
+  leaderTower.position.set(p.x, 0, p.z);
+  leaderTower.rotation.y = -Math.PI / 5;
+  const thinking = Boolean(world.leader_thinking || leader.thinking);
+  leaderTower.userData.dish.material.emissiveIntensity = thinking ? 1.0 : 0.45;
+  leaderTower.userData.beam.material.opacity = thinking ? 0.16 : 0.08;
+}
+
+function syncScene(world) {
+  latestWorld = world;
+  syncWalls(world); syncFactories(world); syncDropboxes(world); syncWorkers(world); syncPackages(world); syncLeader(world); syncPaths(world);
+}
+
+function fmtTime(v) {
+  const s = Math.max(0, Math.floor(v || 0));
+  return String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
+}
+function updatePanel(world, info) {
+  const stats = world.stats || {};
+  const active = (world.workers || []).filter(w => w.status !== "disabled").length;
+  const pending = (world.factories || []).reduce((n, f) => n + (f.pad_packages || []).filter(p => p.reserved_by == null).length, 0);
+  const dropped = (world.dropboxes || []).reduce((n, b) => n + Number(b.delivered || 0), 0);
+  document.getElementById("m-dropped").textContent = dropped || stats.completed || 0;
+  document.getElementById("m-pending").textContent = pending;
+  document.getElementById("m-rate").textContent = Number(stats.rate || 0).toFixed(1);
+  document.getElementById("m-active").textContent = active;
+  document.getElementById("m-avg").textContent = stats.avg_route_time == null ? "--" : Number(stats.avg_route_time).toFixed(1) + "s";
+  document.getElementById("m-conveyors").textContent = world.factories?.length || 0;
+  document.getElementById("b-shelves").textContent = world.wall?.length || 0;
+  document.getElementById("b-conveyors").textContent = world.factories?.length || 0;
+  document.getElementById("b-dropboxes").textContent = world.dropboxes?.length || 0;
+  document.getElementById("speed").textContent = `SPEED ${world.speed_multiplier || 1}x`;
+  document.getElementById("status").textContent = world.running ? "RUNNING" : "PAUSED";
+  document.getElementById("status").style.color = world.running ? "var(--green)" : "var(--amber)";
+  document.getElementById("layout").textContent = `${world.workers?.length || 0} bots · ${world.factories?.length || 0} intakes`;
+  document.getElementById("endpoints").textContent = String(info?.endpoints || world.inference_target || "").split("\n").slice(0,3).join("\n");
+  const workerBox = document.getElementById("workers"); workerBox.innerHTML = "";
+  for (const w of (world.workers || []).slice(0, 6)) {
+    const row = document.createElement("div"); row.className = "worker";
+    const color = "#" + (statusColor[w.status] || 0x7f8c9a).toString(16).padStart(6,"0");
+    row.innerHTML = `<b>${escapeHtml(w.name || "Worker-" + w.id)}</b><span>${escapeHtml(workerStatus(w, world))}</span><i class="dot" style="color:${color};background:${color}"></i>`;
+    workerBox.appendChild(row);
+  }
+  const log = document.getElementById("log");
+  const entries = (world.thought_log || []).slice(-40).reverse();
+  const sig = entries.length + ":" + (entries[0]?.timestamp || 0);
+  if (log.dataset.sig !== sig) {
+    log.dataset.sig = sig; log.innerHTML = "";
+    entries.forEach(e => {
+      const row = document.createElement("div"); row.className = "log";
+      const t = Number(e.elapsed || 0), type = String(e.type || "OBSERVE");
+      row.innerHTML = `<span class="time">${fmtTime(t)}</span><span class="${type}">[${type}]</span><span>${escapeHtml(e.agent || "Leader")}: ${escapeHtml(e.content || "")}</span>`;
+      log.appendChild(row);
+    });
+  }
+  updateRecommendations(world);
+}
+function workerStatus(w, world) {
+  if (w.llm_pending) return `worker LLM: ${w.llm_pending}`;
+  if (w.last_llm_intent) return `${w.last_llm_intent}: ${w.last_llm_reason || "local worker model"}`;
+  if (w.status === "to_pickup") return `to ${(world.factories || []).find(f => f.id === w.target_factory_id)?.name || "intake"}`;
+  if (w.status === "to_dropbox") return `delivering to ${(world.dropboxes || []).find(b => b.id === w.target_dropbox_id)?.name || "dock"}`;
+  if (w.status === "disabled") return "faulted / removed";
+  return "idle, awaiting task";
+}
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+function updateLayoutStatus() {
+  const box = document.getElementById("layout-status");
+  if (!uploadedLayout) {
+    box.textContent = "Upload a PNG using the warehouse color map.";
+    return;
+  }
+  const layout = uploadedLayout.layout || {};
+  const counts = uploadedValidation?.counts || {};
+  const errors = uploadedValidation?.errors || [];
+  const warnings = uploadedValidation?.warnings || [];
+  box.innerHTML = `
+    <strong>${escapeHtml(uploadedLayout.name)}</strong><br>
+    ${uploadedLayout.width}x${uploadedLayout.height} grid ·
+    ${layout.conveyors?.length || 0} conveyors ·
+    ${layout.bins?.length || 0} bins ·
+    ${layout.workerSpawns?.length || 0} worker spawns ·
+    ${counts.shelf || 0} shelf cells<br>
+    ${errors.map(err => `<span class="bad">${escapeHtml(err)}</span>`).join("<br>")}
+    ${warnings.map(warn => `<span>${escapeHtml(warn)}</span>`).join("<br>")}
+    ${!errors.length ? `<span class="good">Valid layout. Ready to apply.</span>` : ""}
+  `;
+}
+
+function currentExperimentOptions() {
+  return {
+    workerCount: Number(document.getElementById("worker-count").value || 3),
+    orderVolume: Number(document.getElementById("order-volume").value || 6),
+  };
+}
+
+function currentMetrics() {
+  return collectMetrics(latestWorld, currentExperimentOptions());
+}
+
+function updateRecommendations(world) {
+  const box = document.getElementById("recommendations");
+  if (!box) return;
+  const metrics = collectMetrics(world || latestWorld, currentExperimentOptions());
+  box.innerHTML = buildRecommendations(metrics, world || latestWorld)
+    .map(item => `<div>${escapeHtml(item)}</div>`)
+    .join("");
+}
+
+function captureScenario(name) {
+  const options = currentExperimentOptions();
+  const scenario = createScenario({
+    name,
+    layoutId: uploadedLayout?.id || latestWorld.layout || "live-layout",
+    workerCount: options.workerCount,
+    orderVolume: options.orderVolume,
+    metrics: currentMetrics(),
+  });
+  if (name === "Baseline") {
+    scenarios = [scenario, ...scenarios.filter(item => item.scenarioName !== "Baseline")];
+  } else {
+    scenarios.push(scenario);
+  }
+  renderScenarioTable();
+}
+
+function renderScenarioTable() {
+  const table = document.getElementById("scenario-table");
+  if (!scenarios.length) {
+    table.textContent = "No scenarios captured yet.";
+    return;
+  }
+  const rows = compareScenarios(scenarios);
+  table.innerHTML = `
+    <div class="scenario-row muted"><b>Name</b><b>Throughput</b><b>Avg</b><b>Cong.</b></div>
+    ${rows.map(row => `
+      <div class="scenario-row">
+        <span>${escapeHtml(row.scenarioName)}</span>
+        <span>${formatMetric(row.metrics.throughput)} ${delta(row.deltaThroughput)}</span>
+        <span>${formatMetric(row.metrics.averageDeliveryTime, "s")} ${delta(row.deltaAverageDeliveryTime, true)}</span>
+        <span>${formatMetric(row.metrics.congestionScore)} ${delta(row.deltaCongestionScore, true)}</span>
+      </div>
+    `).join("")}
+  `;
+}
+
+function delta(value, lowerIsBetter = false) {
+  if (!value) return "";
+  const good = lowerIsBetter ? value < 0 : value > 0;
+  const sign = value > 0 ? "+" : "";
+  return `<span style="color:${good ? "var(--green)" : "var(--red)"}">${sign}${Number(value).toFixed(1)}</span>`;
+}
+
+async function pollState() {
+  try {
+    const res = await fetch(STATE_URL, { cache: "no-store" });
+    if (!res.ok) return;
+    const data = await res.json();
+    syncScene(data.world || {});
+    updatePanel(data.world || {}, data.info || {});
+  } catch {}
+}
+setInterval(pollState, 100); pollState();
+async function sendAction(payload) {
+  try { await fetch(ACTION_URL, { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(payload) }); }
+  catch (e) { console.warn("action failed", e); }
+}
+function setBuildMode(mode) {
+  buildMode = mode;
+  controls.enabled = mode === "camera";
+  hidePreviews();
+  document.getElementById("build-shelf").classList.toggle("active", mode === "shelf");
+  document.getElementById("build-conveyor").classList.toggle("active", mode === "factory");
+  document.getElementById("build-dropbox").classList.toggle("active", mode === "dropbox");
+  document.getElementById("add-worker").classList.toggle("active", mode === "worker");
+  document.getElementById("remove-asset").classList.toggle("active", mode === "remove");
+  document.getElementById("camera-mode").classList.toggle("active", mode === "camera");
+  document.getElementById("build-status").textContent = mode === "dropbox"
+    ? `DROP BOX ${rotationLabel(buildRotation.dropbox)}`
+    : mode === "factory"
+      ? `CONVEYOR ${rotationLabel(buildRotation.factory)}`
+      : mode.replace("_", " ").toUpperCase();
+  const hint = mode === "shelf"
+    ? "Build mode · click or drag to paint shelves · right-drag removes shelf cells"
+    : mode === "remove"
+      ? "Build mode · click a shelf, worker, factory, or drop box to remove it"
+      : mode === "factory"
+        ? "Build mode · press R to rotate conveyor 45deg on Y axis · click to place"
+        : mode === "dropbox"
+          ? "Build mode · press R to rotate drop box 45deg on Y axis · click to place"
+          : mode === "worker"
+            ? "Build mode · click an open floor cell to add a robot"
+            : "Drag rotate · scroll zoom · right drag pan";
+  document.getElementById("hint").textContent = hint;
+}
+function setTab(tab) {
+  activeTab = tab;
+  document.getElementById("tab-ops").classList.toggle("active", tab === "ops");
+  document.getElementById("tab-build").classList.toggle("active", tab === "build");
+  document.getElementById("tab-twin").classList.toggle("active", tab === "twin");
+  document.getElementById("ops-panel").classList.toggle("active", tab === "ops");
+  document.getElementById("build-panel").classList.toggle("active", tab === "build");
+  document.getElementById("twin-panel").classList.toggle("active", tab === "twin");
+  if (tab !== "build") setBuildMode("camera");
+}
+function eventToCell(event) {
+  const rect = renderer.domElement.getBoundingClientRect();
+  pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+  pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(pointer, camera);
+  if (!raycaster.ray.intersectPlane(pickPlane, pickPoint)) return null;
+  const x = Math.floor(pickPoint.x), y = Math.floor(pickPoint.z);
+  if (x < 0 || y < 0 || x >= GRID || y >= GRID) return null;
+  return [x, y];
+}
+function occupiedCell(cell) {
+  if ((latestWorld.wall || []).some(c => c[0] === cell[0] && c[1] === cell[1])) return true;
+  if ((latestWorld.workers || []).some(w => w.pos?.[0] === cell[0] && w.pos?.[1] === cell[1])) return true;
+  if ((latestWorld.factories || []).some(f => f.pos?.[0] <= cell[0] && cell[0] < f.pos[0] + 3 + (f.belt_length || 5) && f.pos?.[1] <= cell[1] && cell[1] < f.pos[1] + 3)) return true;
+  return (latestWorld.dropboxes || []).some(b => b.pos?.[0] <= cell[0] && cell[0] < b.pos[0] + 3 && b.pos?.[1] <= cell[1] && cell[1] < b.pos[1] + 2);
+}
+function footprintCells(mode, cell) {
+  const { width, height } = footprintSize(mode);
+  const cells = [];
+  for (let x = cell[0]; x < cell[0] + width; x++) {
+    for (let y = cell[1]; y < cell[1] + height; y++) cells.push([x, y]);
+  }
+  return cells;
+}
+function canPlace(mode, cell) {
+  if (mode === "remove") return true;
+  return footprintCells(mode, cell).every(c => c[0] >= 0 && c[1] >= 0 && c[0] < GRID && c[1] < GRID && !occupiedCell(c));
+}
+function buildColor() {
+  return document.getElementById("build-color").value || "Red";
+}
+function rotationForMode(mode) {
+  if (mode === "dropbox") return buildRotation.dropbox;
+  if (mode === "factory") return buildRotation.factory;
+  return 0;
+}
+function rotationLabel(value) {
+  return `${Math.round((value * 180 / Math.PI) % 360)}deg`;
+}
+function rotateActiveBuildAsset() {
+  if (buildMode !== "dropbox" && buildMode !== "factory") return;
+  // Negative Y rotation in Three.js right-handed = clockwise when viewed from above.
+  const step = -Math.PI / 4;
+  buildRotation[buildMode] = (buildRotation[buildMode] + step + Math.PI * 2) % (Math.PI * 2);
+  setBuildMode(buildMode);
+}
+function footprintSize(mode) {
+  let width = mode === "factory" ? 8 : mode === "dropbox" ? 3 : 1;
+  let height = mode === "factory" ? 3 : mode === "dropbox" ? 2 : 1;
+  const quarterTurns = Math.round(rotationForMode(mode) / (Math.PI / 2)) % 2;
+  if (quarterTurns) [width, height] = [height, width];
+  return { width, height };
+}
+function footprintForMode(mode, cell) {
+  const { width, height } = footprintSize(mode);
+  if (mode === "factory") return { x: cell[0] + width / 2, z: cell[1] + height / 2, sx: 8.4, sz: 3.2, color: colorFallback[buildColor()] || 0x6de7ff };
+  if (mode === "dropbox") return { x: cell[0] + width / 2, z: cell[1] + height / 2, sx: 3.0, sz: 2.2, color: colorFallback[buildColor()] || 0x56d986 };
+  return { x: cell[0] + 0.5, z: cell[1] + 0.5, sx: 1, sz: 1, color: mode === "worker" ? 0x56d986 : mode === "remove" ? 0xe06363 : 0x6de7ff };
+}
+function updatePreview(event) {
+  if (buildMode === "camera") { hidePreviews(); return; }
+  const cell = eventToCell(event);
+  if (!cell) { hidePreviews(); return; }
+  const ok = canPlace(buildMode, cell) || buildMode === "remove";
+  if (buildMode === "factory") {
+    preview.visible = false;
+    dropboxOutline.visible = false;
+    factoryOutline.visible = true;
+    factoryOutline.position.set(cell[0], 0, cell[1]);
+    factoryOutline.rotation.y = buildRotation.factory;
+    tintOutline(factoryOutline, colorFallback[buildColor()] || 0x6de7ff, ok);
+    return;
+  }
+  if (buildMode === "dropbox") {
+    preview.visible = false;
+    factoryOutline.visible = false;
+    dropboxOutline.visible = true;
+    dropboxOutline.position.set(cell[0], 0, cell[1]);
+    dropboxOutline.rotation.y = buildRotation.dropbox;
+    tintOutline(dropboxOutline, colorFallback[buildColor()] || 0x6de7ff, ok);
+    return;
+  }
+  factoryOutline.visible = false;
+  dropboxOutline.visible = false;
+  const fp = footprintForMode(buildMode, cell);
+  preview.position.set(fp.x, 0.09, fp.z);
+  preview.scale.set(fp.sx, 1, fp.sz);
+  preview.rotation.y = 0;
+  preview.material.color.setHex(fp.color);
+  preview.material.opacity = ok ? 0.35 : 0.15;
+  preview.visible = true;
+}
+function paintBuildCell(event, actionType) {
+  const cell = eventToCell(event);
+  if (!cell || !pointerDown?.paintedCells) return;
+  const key = `${cell[0]},${cell[1]}`;
+  if (pointerDown.paintedCells.has(key)) return;
+  if (actionType === "wall_add" && !canPlace("shelf", cell)) return;
+  pointerDown.paintedCells.add(key);
+  sendAction({type: actionType, cell});
+}
+document.getElementById("start").onclick = () => sendAction({type:"start"});
+document.getElementById("stop").onclick = () => sendAction({type:"stop"});
+document.getElementById("reset").onclick = () => sendAction({type:"reset"});
+document.getElementById("speed").onclick = () => sendAction({type:"speed_toggle"});
+document.getElementById("spike").onclick = () => sendAction({type:"order_spike"});
+document.getElementById("disable").onclick = () => {
+  const target = (latestWorld.workers || []).find(w => w.status !== "disabled");
+  if (target) sendAction({type:"disable_worker", worker_id: target.id});
+};
+document.getElementById("tab-ops").onclick = () => setTab("ops");
+document.getElementById("tab-build").onclick = () => setTab("build");
+document.getElementById("tab-twin").onclick = () => setTab("twin");
+document.getElementById("build-shelf").onclick = () => setBuildMode(buildMode === "shelf" ? "camera" : "shelf");
+document.getElementById("build-conveyor").onclick = () => setBuildMode(buildMode === "factory" ? "camera" : "factory");
+document.getElementById("build-dropbox").onclick = () => setBuildMode(buildMode === "dropbox" ? "camera" : "dropbox");
+document.getElementById("add-worker").onclick = () => setBuildMode(buildMode === "worker" ? "camera" : "worker");
+document.getElementById("remove-asset").onclick = () => setBuildMode(buildMode === "remove" ? "camera" : "remove");
+document.getElementById("camera-mode").onclick = () => setBuildMode("camera");
+document.getElementById("build-color").onchange = () => {
+  preview.visible = false;
+};
+document.getElementById("layout-file").onchange = async (event) => {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  try {
+    uploadedLayout = await parseLayoutImageFile(file, { gridWidth: GRID, gridHeight: GRID, tolerance: 54 });
+    uploadedValidation = validateLayout(uploadedLayout);
+    drawLayoutPreview(document.getElementById("layout-preview"), uploadedLayout);
+    updateLayoutStatus();
+  } catch (error) {
+    uploadedLayout = null;
+    uploadedValidation = { valid: false, errors: [`Could not parse PNG: ${error.message || error}`], warnings: [] };
+    updateLayoutStatus();
+  }
+};
+document.getElementById("apply-layout").onclick = () => {
+  if (!uploadedLayout) {
+    uploadedValidation = { valid: false, errors: ["Upload a PNG or load layout JSON first."], warnings: [] };
+    updateLayoutStatus();
+    return;
+  }
+  uploadedValidation = validateLayout(uploadedLayout);
+  updateLayoutStatus();
+  if (!uploadedValidation.valid) return;
+  sendAction(buildApplyLayoutAction(uploadedLayout, currentExperimentOptions()));
+  setTab("build");
+};
+document.getElementById("save-layout-json").onclick = () => {
+  if (!uploadedLayout) return;
+  downloadJson(`${uploadedLayout.name || "factorymind-layout"}.json`, exportLayoutJson(uploadedLayout));
+};
+document.getElementById("load-layout-json-btn").onclick = () => document.getElementById("layout-json-file").click();
+document.getElementById("layout-json-file").onchange = async (event) => {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  try {
+    uploadedLayout = await readJsonFile(file);
+    uploadedValidation = validateLayout(uploadedLayout);
+    drawLayoutPreview(document.getElementById("layout-preview"), uploadedLayout);
+    updateLayoutStatus();
+  } catch (error) {
+    uploadedLayout = null;
+    uploadedValidation = { valid: false, errors: [`Could not load JSON: ${error.message || error}`], warnings: [] };
+    updateLayoutStatus();
+  }
+};
+document.getElementById("worker-count").oninput = (event) => {
+  document.getElementById("worker-count-value").textContent = event.target.value;
+};
+document.getElementById("worker-count").onchange = (event) => sendAction({ type: "set_worker_count", worker_count: Number(event.target.value || 3) });
+document.getElementById("order-volume").oninput = (event) => {
+  document.getElementById("order-volume-value").textContent = event.target.value;
+};
+document.getElementById("order-volume").onchange = (event) => sendAction({ type: "set_order_volume", order_volume: Number(event.target.value || 6) });
+document.getElementById("capture-baseline").onclick = () => captureScenario("Baseline");
+document.getElementById("capture-variant").onclick = () => captureScenario(`Variant ${Math.max(1, scenarios.length)}`);
+document.getElementById("clear-scenarios").onclick = () => {
+  scenarios = [];
+  renderScenarioTable();
+};
+window.addEventListener("keydown", e => {
+  const target = e.target;
+  if (target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
+  if (activeTab === "build" && (buildMode === "dropbox" || buildMode === "factory") && e.key.toLowerCase() === "r") {
+    e.preventDefault();
+    rotateActiveBuildAsset();
+  }
+});
+renderer.domElement.addEventListener("contextmenu", e => {
+  if (buildMode !== "camera") e.preventDefault();
+});
+renderer.domElement.addEventListener("pointermove", e => {
+  updatePreview(e);
+  if (pointerDown?.paintMode && e.buttons) {
+    paintBuildCell(e, pointerDown.actionType);
+  }
+});
+renderer.domElement.addEventListener("pointerdown", e => {
+  if (buildMode === "camera") return;
+  if (buildMode === "shelf" || buildMode === "remove") {
+    e.preventDefault();
+    pointerDown = {
+      x: e.clientX,
+      y: e.clientY,
+      paintMode: buildMode,
+      actionType: buildMode === "remove" ? "remove_asset" : e.button === 2 ? "wall_remove" : "wall_add",
+      paintedCells: new Set(),
+      pointerId: e.pointerId,
+    };
+    renderer.domElement.setPointerCapture?.(e.pointerId);
+    paintBuildCell(e, pointerDown.actionType);
+    return;
+  }
+  pointerDown = { x: e.clientX, y: e.clientY, pointerId: e.pointerId };
+});
+renderer.domElement.addEventListener("pointerup", e => {
+  if (buildMode === "camera" || !pointerDown) return;
+  renderer.domElement.releasePointerCapture?.(pointerDown.pointerId);
+  if (pointerDown.paintMode) {
+    pointerDown = null;
+    return;
+  }
+  const moved = Math.hypot(e.clientX - pointerDown.x, e.clientY - pointerDown.y);
+  pointerDown = null;
+  if (moved > 6) return;
+  const cell = eventToCell(e); if (!cell) return;
+  if (buildMode === "shelf") {
+    sendAction({type: e.button === 2 ? "wall_remove" : "wall_add", cell});
+  } else if (buildMode === "remove") {
+    sendAction({type:"remove_asset", cell});
+  } else if (buildMode === "factory" && canPlace(buildMode, cell)) {
+    sendAction({type:"place_factory", cell, color: buildColor(), rotation_y: buildRotation.factory});
+  } else if (buildMode === "dropbox" && canPlace(buildMode, cell)) {
+    sendAction({type:"place_dropbox", cell, color: buildColor(), rotation_y: buildRotation.dropbox});
+  } else if (buildMode === "worker" && canPlace(buildMode, cell)) {
+    sendAction({type:"place_worker", cell});
+  }
+});
+renderer.domElement.addEventListener("pointercancel", () => {
+  pointerDown = null;
+});
+renderer.domElement.addEventListener("pointerleave", e => {
+  if (pointerDown?.paintMode && !e.buttons) pointerDown = null;
+});
+setBuildMode("camera");
+setTab("ops");
+updateLayoutStatus();
+renderScenarioTable();
+
+const clock = new THREE.Clock();
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = clock.getDelta();
+  const lerp = 1 - Math.exp(-dt * 9);
+  for (const [id, group] of workers) {
+    const v = workerVisual.get(id);
+    if (!v) continue;
+    v.x += (v.target.x - v.x) * lerp; v.z += (v.target.z - v.z) * lerp;
+    group.position.set(v.x, 0, v.z);
+    const w = (latestWorld.workers || []).find(x => x.id === id);
+    if (w?.path?.length) {
+      const next = worldPos(w.path[0]);
+      group.rotation.y = Math.atan2(next.x - v.x, next.z - v.z);
+    }
+  }
+  if (leaderTower) {
+    const pulse = 1 + Math.sin(clock.elapsedTime * 2.6) * 0.08;
+    leaderTower.userData.dish.scale.setScalar(pulse);
+  }
+  controls.update();
+  renderer.render(scene, camera);
+}
+animate();
+function resize() {
+  const w = stage.clientWidth, h = stage.clientHeight;
+  camera.aspect = Math.max(w,1) / Math.max(h,1);
+  camera.updateProjectionMatrix();
+  renderer.setSize(w, h, false);
+}
+new ResizeObserver(resize).observe(stage);
+resize();
+</script>
+</body>
+</html>

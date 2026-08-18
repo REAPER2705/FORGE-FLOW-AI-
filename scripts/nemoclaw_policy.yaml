@@ -1,0 +1,64 @@
+# FactoryMind autonomous factory runtime policy
+# Loaded at startup by factorymind.main and logged to logs/nemoclaw.log.
+
+name: factorymind-autonomous
+description: OpenClaw/NemoClaw policy for leader/worker package routing.
+
+agents:
+  leader:
+    model: nvidia/llama-3_3-nemotron-super-49b-v1_5
+    allow:
+      - observe_floor_state
+      - post_worker_directive
+      - read_policy_log
+    deny:
+      - move_worker_directly
+      - modify_factory
+      - modify_dropbox
+      - pickup_package
+      - drop_package
+
+  worker:
+    model: nvidia/nvidia-nemotron-nano-9b-v2
+    allow:
+      - move_within_simulation_area
+      - pickup_from_conveyor_pad
+      - drop_at_matching_color_dropbox
+      - report_complete
+    deny:
+      - leave_simulation_area
+      - pickup_from_non_pad
+      - drop_at_mismatched_dropbox
+      - modify_factory
+      - modify_policy
+
+network:
+  allow:
+    - "127.0.0.1:8000"   # worker Nano-9B NIM
+    - "127.0.0.1:8001"   # leader Super-49B NIM
+    - "localhost:8000"
+    - "localhost:8001"
+  deny:
+    - "*"
+
+filesystem:
+  read:
+    - "./factorymind/"
+    - "./scripts/nemoclaw_policy.yaml"
+    - "./.env"
+  write:
+    - "./logs/nemoclaw.log"
+    - "./factorymind_memory.db"
+  deny:
+    - "/etc/"
+    - "/home/"
+    - "/root/"
+    - "/var/"
+    - "/proc/"
+
+logging:
+  path: "./logs/nemoclaw.log"
+  events:
+    - allow
+    - deny
+    - policy_loaded
