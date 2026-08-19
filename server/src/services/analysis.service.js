@@ -6,6 +6,7 @@ import AnomalyService from './anomaly.service.js';
 import IncidentService from './incident.service.js';
 import RootCauseService from './rootCause.service.js';
 import MaintenanceService from './maintenance.service.js';
+import LangGraphService from './langgraph.service.js';
 import { Machine } from '../models/Machine.js';
 
 export class AnalysisService {
@@ -75,6 +76,24 @@ export class AnalysisService {
           );
           console.log(`  7. Recommendation generated: ${recommendation.priority}`);
 
+          // Step 8b: Execute AI workflow (LangGraph) for enhanced analysis
+          // This is supplementary to Phase 3 deterministic analysis
+          let aiWorkflowResult = null;
+          try {
+            const workflowState = LangGraphService.buildState(
+              machine,
+              telemetryHistory,
+              anomalyAnalysis,
+              rootCauseAnalysis,
+              recommendation
+            );
+            const completedState = await LangGraphService.executeAnalysisWorkflow(workflowState);
+            aiWorkflowResult = LangGraphService.extractOutput(completedState);
+            console.log(`  7b. AI workflow completed successfully`);
+          } catch (error) {
+            console.warn('⚠️  AI workflow error (non-blocking):', error.message);
+          }
+
           // Step 9: Create work order
           const workOrder = await MaintenanceService.createWorkOrder(
             incident.incidentId,
@@ -93,6 +112,7 @@ export class AnalysisService {
               severity: anomalyAnalysis.severity,
               riskScore: anomalyAnalysis.riskScore,
             },
+            aiAnalysis: aiWorkflowResult,
           };
         } else {
           console.log(`  ⚠ Recent incident already exists, skipping duplicate`);
