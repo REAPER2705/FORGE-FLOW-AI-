@@ -1,7 +1,7 @@
 // Dashboard Page
 // Main overview of factory operations and KPIs
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { usePolling } from '../hooks/usePolling';
 import { machinesAPI } from '../api/machines';
 import { analysisAPI } from '../api/analysis';
@@ -32,11 +32,15 @@ export function Dashboard() {
   const [simulationStarting, setSimulationStarting] = useState(false);
   const [simMessage, setSimMessage] = useState('');
 
+  // Memoize fetch functions to prevent infinite re-renders
+  const fetchMachines = useCallback(() => machinesAPI.getAllMachines(), []);
+  const fetchSummary = useCallback(() => analysisAPI.getDashboardSummary(), []);
+
   // Fetch machines
-  const { data: machinesData } = usePolling(() => machinesAPI.getAllMachines(), 5000);
+  const { data: machinesData } = usePolling(fetchMachines, 5000);
 
   // Fetch analysis summary
-  const { data: summaryData } = usePolling(() => analysisAPI.getDashboardSummary(), 5000);
+  const { data: summaryData } = usePolling(fetchSummary, 5000);
 
   const machines = machinesData?.data || [];
   const summary = summaryData?.data;

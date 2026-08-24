@@ -7,6 +7,7 @@ import IncidentService from './incident.service.js';
 import RootCauseService from './rootCause.service.js';
 import MaintenanceService from './maintenance.service.js';
 import LangGraphService from './langgraph.service.js';
+import N8nService from './n8n.service.js';
 import { Machine } from '../models/Machine.js';
 
 export class AnalysisService {
@@ -101,6 +102,22 @@ export class AnalysisService {
             recommendation
           );
           console.log(`  8. Work order created: ${workOrder.workOrderId}`);
+
+          // Step 10: Trigger n8n automation for CRITICAL incidents
+          if (anomalyAnalysis.severity === 'CRITICAL') {
+            try {
+              await N8nService.triggerIncidentWorkflow(
+                incident,
+                rootCauseAnalysis,
+                recommendation,
+                workOrder,
+                latestTelemetry
+              );
+              console.log(`  9. n8n automation triggered`);
+            } catch (error) {
+              console.warn('⚠️  n8n automation error (non-blocking):', error.message);
+            }
+          }
 
           return {
             incident,

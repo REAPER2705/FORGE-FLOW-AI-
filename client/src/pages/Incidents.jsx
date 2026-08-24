@@ -3,10 +3,13 @@
 
 import { usePolling } from '../hooks/usePolling';
 import { incidentsAPI } from '../api/incidents';
+import { useCallback } from 'react';
 
 export function Incidents() {
+  const fetchIncidents = useCallback(() => incidentsAPI.getAllIncidents(), []);
+
   const { data, loading, error } = usePolling(
-    () => incidentsAPI.getAllIncidents(),
+    fetchIncidents,
     5000
   );
 

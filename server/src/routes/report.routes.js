@@ -1,25 +1,43 @@
 // Report Routes
 // API endpoints for report generation
 
+import ReportService from '../services/report.service.js';
+
 export const setupReportRoutes = (app) => {
+  // Get all reports (empty for now, placeholder for future)
   app.get('/api/reports', async (req, res, next) => {
     try {
-      // TODO: Replace with actual database query in Phase 2
+      const reports = await ReportService.listReports();
       res.json({
         success: true,
-        data: [],
+        data: reports,
       });
     } catch (error) {
       next(error);
     }
   });
 
+  // Generate factory health report
   app.post('/api/reports/generate', async (req, res, next) => {
     try {
-      // TODO: Implement PDF generation in Phase 7
-      res.status(202).json({
+      const report = await ReportService.generateFactoryHealthReport();
+      res.json({
         success: true,
-        message: 'PDF generation will be implemented in Phase 7',
+        data: report,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Get factory health summary (quick endpoint)
+  app.get('/api/reports/health', async (req, res, next) => {
+    try {
+      const report = await ReportService.generateFactoryHealthReport();
+      res.json({
+        success: true,
+        data: report,
       });
     } catch (error) {
       next(error);

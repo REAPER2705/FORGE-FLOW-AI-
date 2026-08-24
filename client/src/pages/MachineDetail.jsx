@@ -8,22 +8,26 @@ import { telemetryAPI } from '../api/telemetry';
 import { simulationAPI } from '../api/simulation';
 import TelemetryChart from '../components/TelemetryChart';
 import { AlertCircle } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 
 export function MachineDetail() {
   const { id } = useParams();
   const [controlLoading, setControlLoading] = useState(false);
   const [controlMessage, setControlMessage] = useState('');
 
+  // Memoize fetch functions with id dependency
+  const fetchMachine = useCallback(() => machinesAPI.getMachine(id), [id]);
+  const fetchTelemetry = useCallback(() => telemetryAPI.getTelemetryByMachine(id, 50), [id]);
+
   // Fetch machine details
   const { data: machineData, loading: machineLoading, error: machineError } = usePolling(
-    () => machinesAPI.getMachine(id),
+    fetchMachine,
     5000
   );
 
   // Fetch telemetry
   const { data: telemetryData, loading: telemetryLoading, error: telemetryError } = usePolling(
-    () => telemetryAPI.getTelemetryByMachine(id, 50),
+    fetchTelemetry,
     5000
   );
 

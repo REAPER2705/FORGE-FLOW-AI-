@@ -1,13 +1,15 @@
 // Incident Routes
 // API endpoints for incident management
 
+import IncidentService from '../services/incident.service.js';
+
 export const setupIncidentRoutes = (app) => {
   app.get('/api/incidents', async (req, res, next) => {
     try {
-      // TODO: Replace with actual database query in Phase 2
+      const incidents = await IncidentService.getOpenIncidents();
       res.json({
         success: true,
-        data: [],
+        data: incidents,
       });
     } catch (error) {
       next(error);
@@ -17,10 +19,18 @@ export const setupIncidentRoutes = (app) => {
   app.get('/api/incidents/:id', async (req, res, next) => {
     try {
       const { id } = req.params;
-      // TODO: Replace with actual database query in Phase 2
+      const incident = await IncidentService.getIncident(id);
+
+      if (!incident) {
+        return res.status(404).json({
+          success: false,
+          error: 'Incident not found',
+        });
+      }
+
       res.json({
         success: true,
-        data: null,
+        data: incident,
       });
     } catch (error) {
       next(error);
@@ -29,10 +39,10 @@ export const setupIncidentRoutes = (app) => {
 
   app.post('/api/incidents', async (req, res, next) => {
     try {
-      // TODO: Implement incident creation in Phase 2
+      // Incidents are created by the analysis pipeline
       res.status(201).json({
         success: true,
-        message: 'Incident creation will be implemented in Phase 2',
+        message: 'Incidents are created by the analysis pipeline',
       });
     } catch (error) {
       next(error);

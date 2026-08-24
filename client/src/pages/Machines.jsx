@@ -5,10 +5,13 @@ import { Link } from 'react-router-dom';
 import { usePolling } from '../hooks/usePolling';
 import { machinesAPI } from '../api/machines';
 import { Cpu, AlertCircle, CheckCircle } from 'lucide-react';
+import { useCallback } from 'react';
 
 export function Machines() {
+  const fetchMachines = useCallback(() => machinesAPI.getAllMachines(), []);
+
   const { data, loading, error } = usePolling(
-    () => machinesAPI.getAllMachines(),
+    fetchMachines,
     5000
   );
 

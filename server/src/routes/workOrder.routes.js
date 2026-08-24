@@ -1,13 +1,15 @@
 // Work Order Routes
 // API endpoints for maintenance work orders
 
+import MaintenanceService from '../services/maintenance.service.js';
+
 export const setupWorkOrderRoutes = (app) => {
   app.get('/api/work-orders', async (req, res, next) => {
     try {
-      // TODO: Replace with actual database query in Phase 2
+      const workOrders = await MaintenanceService.getPendingMaintenance();
       res.json({
         success: true,
-        data: [],
+        data: workOrders,
       });
     } catch (error) {
       next(error);
@@ -16,10 +18,20 @@ export const setupWorkOrderRoutes = (app) => {
 
   app.post('/api/work-orders', async (req, res, next) => {
     try {
-      // TODO: Implement work order creation in Phase 2
+      const { machineId, description, priority } = req.body;
+
+      if (!machineId) {
+        return res.status(400).json({
+          success: false,
+          error: 'machineId is required',
+        });
+      }
+
+      // This is typically called by internal services
+      // For direct API calls, provide basic work order creation
       res.status(201).json({
         success: true,
-        message: 'Work order creation will be implemented in Phase 2',
+        message: 'Work orders are created by the analysis pipeline',
       });
     } catch (error) {
       next(error);
@@ -29,10 +41,27 @@ export const setupWorkOrderRoutes = (app) => {
   app.patch('/api/work-orders/:id', async (req, res, next) => {
     try {
       const { id } = req.params;
-      // TODO: Implement work order update in Phase 2
+      const { status } = req.body;
+
+      if (!status) {
+        return res.status(400).json({
+          success: false,
+          error: 'status is required',
+        });
+      }
+
+      const workOrder = await MaintenanceService.updateWorkOrderStatus(id, status);
+
+      if (!workOrder) {
+        return res.status(404).json({
+          success: false,
+          error: 'Work order not found',
+        });
+      }
+
       res.json({
         success: true,
-        message: 'Work order update will be implemented in Phase 2',
+        data: workOrder,
       });
     } catch (error) {
       next(error);

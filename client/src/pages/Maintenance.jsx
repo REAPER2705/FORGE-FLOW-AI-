@@ -3,10 +3,13 @@
 
 import { usePolling } from '../hooks/usePolling';
 import { workOrdersAPI } from '../api/workOrders';
+import { useCallback } from 'react';
 
 export function Maintenance() {
+  const fetchWorkOrders = useCallback(() => workOrdersAPI.getAllWorkOrders(), []);
+
   const { data, loading, error } = usePolling(
-    () => workOrdersAPI.getAllWorkOrders(),
+    fetchWorkOrders,
     5000
   );
 
