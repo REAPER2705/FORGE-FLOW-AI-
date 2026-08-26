@@ -25,9 +25,38 @@ dotenv.config();
 
 const app = express();
 
-// Middleware
+// Middleware - CORS Configuration
+// Support both development (localhost) and production (Render) origins
+const allowedOrigins = [
+  config.clientUrl,
+  'http://localhost:5173',
+  'https://forge-flow-ai-ap60.onrender.com',
+];
+
 app.use(cors({
-  origin: config.clientUrl,
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, curl requests, etc.)
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    // Check if origin is in allowed list
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    // Production: Allow any *.onrender.com subdomain for Render deployments
+    if (origin.endsWith('.onrender.com')) {
+      return callback(null, true);
+    }
+
+    // Development: Allow localhost
+    if (origin.includes('localhost')) {
+      return callback(null, true);
+    }
+
+    return callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
 }));
 app.use(express.json());
