@@ -15,7 +15,16 @@ const automationExecutionSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    workflowType: {
+      type: String,
+      enum: ['CRITICAL_INCIDENT', 'TEST_AUTOMATION'],
+      default: 'CRITICAL_INCIDENT',
+    },
     incidentId: {
+      type: String,
+      default: null,
+    },
+    testEmail: {
       type: String,
       default: null,
     },

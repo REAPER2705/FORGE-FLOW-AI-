@@ -108,6 +108,7 @@ export class AnalysisService {
             try {
               await N8nService.triggerIncidentWorkflow(
                 incident,
+                machine,
                 rootCauseAnalysis,
                 recommendation,
                 workOrder,

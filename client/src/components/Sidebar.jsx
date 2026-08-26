@@ -7,7 +7,6 @@ import {
   Factory,
   Cpu,
   AlertCircle,
-  Wrench,
   Bot,
   FileText,
   Zap,
@@ -18,7 +17,6 @@ const navItems = [
   { name: 'Factory Twin', path: '/factory', icon: Factory },
   { name: 'Machines', path: '/machines', icon: Cpu },
   { name: 'Incidents', path: '/incidents', icon: AlertCircle },
-  { name: 'Maintenance', path: '/maintenance', icon: Wrench },
   { name: 'AI Copilot', path: '/copilot', icon: Bot },
   { name: 'Reports', path: '/reports', icon: FileText },
   { name: 'Automation', path: '/automation', icon: Zap },
@@ -60,3 +58,4 @@ export function Sidebar() {
 }
 
 export default Sidebar;
+

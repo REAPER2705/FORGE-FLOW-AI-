@@ -1,9 +1,37 @@
 // Automation Routes
-// API endpoints for n8n automation management
+// API endpoints for n8n automation management (test and production)
 
 import N8nService from '../services/n8n.service.js';
 
 export const setupAutomationRoutes = (app) => {
+  // Send test automation report
+  app.post('/api/automation/test', async (req, res, next) => {
+    try {
+      const { email } = req.body;
+
+      if (!email) {
+        return res.status(400).json({
+          success: false,
+          error: 'Email address required',
+        });
+      }
+
+      const execution = await N8nService.sendTestAutomation(email);
+
+      res.status(201).json({
+        success: true,
+        message: 'Test report sent successfully',
+        executionId: execution.executionId,
+        data: execution,
+      });
+    } catch (error) {
+      res.status(400).json({
+        success: false,
+        error: error.message || 'Failed to send test report',
+      });
+    }
+  });
+
   // Get all automation executions
   app.get('/api/automation/executions', async (req, res, next) => {
     try {
@@ -41,30 +69,6 @@ export const setupAutomationRoutes = (app) => {
       res.json({
         success: true,
         data: executions,
-      });
-    } catch (error) {
-      next(error);
-    }
-  });
-
-  // Trigger incident workflow (called internally)
-  app.post('/api/automation/incident', async (req, res, next) => {
-    try {
-      // This endpoint is for testing purposes
-      // Real automation is triggered from IncidentService
-      const { incidentId, machineId, severity } = req.body;
-
-      if (!incidentId) {
-        return res.status(400).json({
-          success: false,
-          error: 'incidentId required',
-        });
-      }
-
-      res.status(202).json({
-        success: true,
-        message: 'Automation workflow triggered',
-        incidentId,
       });
     } catch (error) {
       next(error);

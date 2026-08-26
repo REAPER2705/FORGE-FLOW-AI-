@@ -11,7 +11,6 @@ import FactoryTwin from './pages/FactoryTwin';
 import Machines from './pages/Machines';
 import MachineDetail from './pages/MachineDetail';
 import Incidents from './pages/Incidents';
-import Maintenance from './pages/Maintenance';
 import Copilot from './pages/Copilot';
 import Reports from './pages/Reports';
 import Automation from './pages/Automation';
@@ -28,7 +27,6 @@ function App() {
           <Route path="machines" element={<Machines />} />
           <Route path="machines/:id" element={<MachineDetail />} />
           <Route path="incidents" element={<Incidents />} />
-          <Route path="maintenance" element={<Maintenance />} />
           <Route path="copilot" element={<Copilot />} />
           <Route path="reports" element={<Reports />} />
           <Route path="automation" element={<Automation />} />
